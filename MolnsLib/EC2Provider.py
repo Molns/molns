@@ -63,7 +63,7 @@ class EC2Provider(EC2Base):
     ('molns_image_name',
         {'q':'ID of the MOLNs image (leave empty for none)', 'default':None, 'ask':True}),
     ('default_instance_type',
-        {'q':'Default Instance Type', 'default':'m1.small', 'ask':True}),
+        {'q':'Default Instance Type', 'default':'c3.large', 'ask':True}),
     ('login_username',
         {'default':'ubuntu', 'ask':False})
     ])

@@ -277,7 +277,7 @@ class SSHDeploy:
                 time.sleep(self.SSH_CONNECT_WAITTIME)
         raise SSHDeployException("ssh connect Failed!!!\t{0}:{1}".format(hostname,self.ssh_endpoint))
 
-    def start_molns_webserver(self, ip_address):
+    def deploy_molns_webserver(self, ip_address):
         try:
             self.connect(ip_address, self.ssh_endpoint)
             self.exec_command("sudo rm -rf /usr/local/molns_webroot")
@@ -287,6 +287,20 @@ class SSHDeploy:
             self.exec_multi_command("cd /usr/local/molns_webroot; python -m SimpleHTTPServer {0} > ~/.molns_webserver.log 2>&1 &".format(self.DEFAULT_PRIVATE_WEBSERVER_PORT), '\n')
             self.exec_command("sudo iptables -t nat -A PREROUTING -i eth0 -p tcp --dport {0} -j REDIRECT --to-port {1}".format(self.DEFAULT_PUBLIC_WEBSERVER_PORT,self.DEFAULT_PRIVATE_WEBSERVER_PORT))
             self.ssh.close()
+            print "Deploying MOLNs webserver"
+            url = "http://{0}/".format(ip_address)
+            while True:
+                try:
+                    req = urllib2.urlopen(url)
+                    sys.stdout.write("\n")
+                    sys.stdout.flush()
+                    break
+                except Exception as e:
+                    #sys.stdout.write("{0}".format(e))
+                    sys.stdout.write(".")
+                    sys.stdout.flush()
+                    time.sleep(1)
+            webbrowser.open(url)
         except Exception as e:
             print "Failed: {0}\t{1}:{2}".format(e, ip_address, self.ssh_endpoint)
             raise sys.exc_info()[1], None, sys.exc_info()[2]
@@ -387,16 +401,12 @@ class SSHDeploy:
                 self.exec_command("{1}source /usr/local/pyurdme/pyurdme_init; screen -d -m ipengine --profile={0} --debug".format(self.profile, self.ipengine_env))
             self.exec_command("{1}source /usr/local/pyurdme/pyurdme_init; screen -d -m ipython notebook --profile={0}".format(self.profile, self.ipengine_env))
             self.exec_command("sudo iptables -t nat -A PREROUTING -i eth0 -p tcp --dport {0} -j REDIRECT --to-port {1}".format(self.DEFAULT_PUBLIC_NOTEBOOK_PORT,self.DEFAULT_PRIVATE_NOTEBOOK_PORT))
-            #self.start_molns_webserver(ip_address)
-            #self.port_forward_command()
             self.ssh.close()
         except Exception as e:
             print "Failed: {0}\t{1}:{2}".format(e, ip_address, self.ssh_endpoint)
             raise sys.exc_info()[1], None, sys.exc_info()[2]
         url = "http://%s" %(ip_address)
-        print "\nThe URL for your cluster is: %s." % url
-        print "\nNote that it can take a few moments for the server to be available, so you might have to reload the page."
-        webbrowser.open(url)
+        print "\nThe URL for your MOLNs cluster is: %s." % url
 
     def get_ipython_engine_file(self, ip_address):
         try:
