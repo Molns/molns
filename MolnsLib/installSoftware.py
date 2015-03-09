@@ -71,7 +71,7 @@ class InstallSW:
             "ipython profile create default",
         ],
         [   "sudo rm -rf /usr/local/pyurdme;sudo mkdir -p /usr/local/pyurdme;sudo chown ubuntu /usr/local/pyurdme",
-            "cd /usr/local/ && git clone https://github.com/ahellander/pyurdme.git",
+            "cd /usr/local/ && git clone https://github.com/MOLNs/pyurdme.git",
             "cd /usr/local/pyurdme && git checkout develop",
          
             "cp /usr/local/pyurdme/pyurdme/data/three.js_templates/js/* .ipython/profile_default/static/custom/",
