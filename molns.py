@@ -52,10 +52,17 @@ def raw_input_default(q, default=None, obfuscate=False):
         else:
             return ret.strip()
 
-def raw_input_default_config(q, default=None):
+def raw_input_default_config(q, default=None, obj=None):
     """ Ask the user and process the response with a default value. """
     if default is None:
-        default = q['default']
+        if callable(q['default']):
+            f1 = q['default']
+            try:
+                default = f1(obj)
+            except TypeError:
+                pass
+        else:
+            default = q['default']
     if 'ask' in q and not q['ask']:
         return default
     if 'obfuscate' in q and q['obfuscate']:
@@ -66,7 +73,7 @@ def raw_input_default_config(q, default=None):
 def setup_object(obj):
     """ Setup a molns_datastore object using raw_input_default function. """
     for key, conf, value in obj.get_config_vars():
-        obj[key] = raw_input_default_config(conf, default=value)
+        obj[key] = raw_input_default_config(conf, default=value, obj=obj)
 
 ###############################################
 class SubCommand():
@@ -721,8 +728,13 @@ class MOLNSProvider():
             print "Select a provider type:"
             for n,p in enumerate(VALID_PROVIDER_TYPES):
                 print "\t[{0}] {1}".format(n,p)
-            provider_ndx = int(raw_input_default("enter the number of type:", default='0'))
-            provider_type = VALID_PROVIDER_TYPES[provider_ndx]
+            while True:
+                try:
+                    provider_ndx = int(raw_input_default("enter the number of type:", default='0'))
+                    provider_type = VALID_PROVIDER_TYPES[provider_ndx]
+                    break
+                except (ValueError, IndexError):
+                    pass
             logging.debug("provider type '{0}'".format(provider_type))
             # Create provider
             try:
@@ -739,7 +751,6 @@ class MOLNSProvider():
         # check for ssh key
         if provider_obj['key_name'] is None or provider_obj['key_name'] == '':
             print "Error: no key_name specified."
-            #TODO: search for existing keys on disk+cloud
             return
         elif not provider_obj.check_ssh_key():
             print "Creating key '{0}'".format(provider_obj['key_name'])
@@ -750,7 +761,6 @@ class MOLNSProvider():
         # check for security group
         if provider_obj['group_name'] is None or provider_obj['group_name'] == '':
             print "Error: no security group specified."
-            #TODO: search for existing keys on disk+cloud
             return
         elif not provider_obj.check_security_group():
             print "Creating security group '{0}'".format(provider_obj['group_name'])
@@ -762,7 +772,6 @@ class MOLNSProvider():
         if provider_obj['molns_image_name'] is None or provider_obj['molns_image_name'] == '':
             if provider_obj['ubuntu_image_name'] is None or provider_obj['ubuntu_image_name'] == '':
                 print "Error: no ubuntu_image_name given, can not create molns image."
-                #TODO: search for ubuntu image
             else:
                 print "Creating new image, this process can take a long time (10-30 minutes)."
                 provider_obj['molns_image_name'] = provider_obj.create_molns_image()
@@ -788,7 +797,6 @@ class MOLNSProvider():
             provider_obj = config.get_object(args[0], kind='Provider')
             if provider_obj['ubuntu_image_name'] is None or provider_obj['ubuntu_image_name'] == '':
                 print "Error: no ubuntu_image_name given, can not create molns image."
-                #TODO: search for ubuntu image
             else:
                 provider_obj['molns_image_name'] = provider_obj.create_molns_image()
                 print "Success. new image = {0}".format(provider_obj['molns_image_name'])

@@ -38,7 +38,7 @@ class ProviderBase():
 
     def __getitem__(self, key):
         if key not in self.CONFIG_VARS.keys():
-            raise KeyError("{0}: key {1} not found".format(self.OBJ_NAMEkey))
+            raise KeyError("{0}: key {1} not found".format(self.OBJ_NAME, key))
         return self.config[key]
 
     def __setitem__(self, key, value):

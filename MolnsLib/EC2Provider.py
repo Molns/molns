@@ -18,10 +18,15 @@ logging.getLogger('boto').setLevel(logging.CRITICAL)
 ##########################################
 # Ubuntu Precise images
 UBUNTU_IMAGES_BY_REGION = {
-    #'us-east-1': 'ami-e84d8480',  # Ubuntu 12.04.3
-    #'us-west-1': 'ami-c08dbc85',
-    #'us-west-2': 'ami-927613a2'
-    'us-east-1': 'ami-88562de0',  #unbuntu 14.04.1 amd64
+    'us-east-1': 'ami-988ad1f0',  #ubuntu/images/ebs/ubuntu-trusty-14.04-amd64-server-20150305
+    'us-west-2': 'ami-cb1536fb',
+    'us-west-1': 'ami-397d997d',
+    'eu-west-1': 'ami-fbfd6e8c',
+    'eu-central-1': 'ami-eca694f1',
+    'ap-southeast-1': 'ami-72546220',
+    'ap-northeast-1': 'ami-85876e85',
+    'ap-southeast-2': 'ami-dd4e3fe7',
+    'sa-east-1': 'ami-ad57eeb0',
 }
 ##########################################
 class EC2Base(ProviderBase):
@@ -35,8 +40,15 @@ def EC2Provider_config_get_region():
         return 'us-east-1'
     return os.environ.get('AWS_DEFAULT_REGION')
 
-def EC2Provider_config_get_ubuntu_images_by_region():
-    r = EC2Provider_config_get_region()
+def EC2Provider_config_get_ubuntu_images_by_region(conf=None):
+    r = None
+    if conf is not None:
+        try:
+            r = conf['aws_region']
+        except KeyError:
+            pass
+    if r is None:
+        r = EC2Provider_config_get_region()
     if r in UBUNTU_IMAGES_BY_REGION:
         return UBUNTU_IMAGES_BY_REGION[r]
     return None
@@ -62,7 +74,7 @@ class EC2Provider(EC2Base):
     ('group_name',
         {'q':'EC2 Security Group name', 'default':'molns', 'ask':True}),
     ('ubuntu_image_name',
-        {'q':'ID of the base Ubuntu image to use', 'default':EC2Provider_config_get_ubuntu_images_by_region(), 'ask':True}),
+        {'q':'ID of the base Ubuntu image to use', 'default':EC2Provider_config_get_ubuntu_images_by_region, 'ask':True}),
     ('molns_image_name',
         {'q':'ID of the MOLNs image (leave empty for none)', 'default':None, 'ask':True}),
     ('default_instance_type',
@@ -163,7 +175,7 @@ class EC2Controller(EC2Base):
     CONFIG_VARS = OrderedDict(
     [
     ('instance_type',
-        {'q':'Default Instance Type', 'default':'m1.small', 'ask':True}),
+        {'q':'Default Instance Type', 'default':'c3.large', 'ask':True}),
     ])
 
     def _connect(self):
@@ -266,7 +278,7 @@ class EC2WorkerGroup(EC2Controller):
     CONFIG_VARS = OrderedDict(
     [
     ('instance_type',
-        {'q':'Default Instance Type', 'default':'m1.small', 'ask':True}),
+        {'q':'Default Instance Type', 'default':'c3.large', 'ask':True}),
     ('num_vms',
         {'q':'Number of virtual machines in group', 'default':'1', 'ask':True}),
     ])
