@@ -20,7 +20,8 @@ class OpenStackBase(ProviderBase):
     SSH_KEY_EXTENSION = ".pem"
     PROVIDER_TYPE = 'OpenStack'
 
-
+def OpenStackProvider_default_key_name():
+    return "molns_sshkey_{0}".format(hex(int(time.time())).replace('0x',''))
 ##########################################
 class OpenStackProvider(OpenStackBase):
     """ Provider handle for an open stack service. """
@@ -46,7 +47,7 @@ class OpenStackProvider(OpenStackBase):
     ('nova_version',
         {'q':'Enter the version of the OpenStack NOVA API', 'default':"2", 'ask':True}),
     ('key_name',
-        {'q':'OpenStack Key Pair name', 'default':None, 'ask':True}),
+        {'q':'OpenStack Key Pair name', 'default':OpenStackProvider_default_key_name(), 'ask':True}),
     ('group_name',
         {'q':'OpenStack Security Group name', 'default':'molns', 'ask':True}),
     ('ubuntu_image_name',
