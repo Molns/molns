@@ -44,9 +44,9 @@ def raw_input_default(q, default=None, obfuscate=False):
         return raw_input("{0}:".format(q))
     else:
         if obfuscate:
-            ret = raw_input("{0} [******]:".format(q))
+            ret = raw_input("{0} [******]: ".format(q))
         else:
-            ret = raw_input("{0} [{1}]:".format(q, default))
+            ret = raw_input("{0} [{1}]: ".format(q, default))
         if ret == '':
             return default
         else:
