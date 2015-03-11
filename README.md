@@ -28,7 +28,7 @@ To prepare your system:
     * sudo pip install python-novaclient
         * In case of problems, more information can be found [here](http://docs.openstack.org/user-guide/content/install_clients.html). 
     
-3. Download and install MONLs:
+3. Download and install MOLNs:
 
     Download the lastest version of molns from this web address:
         https://github.com/Molns/molns/archive/master.zip
