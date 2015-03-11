@@ -40,6 +40,9 @@ def EC2Provider_config_get_ubuntu_images_by_region():
     if r in UBUNTU_IMAGES_BY_REGION:
         return UBUNTU_IMAGES_BY_REGION[r]
     return None
+
+def EC2Provider_default_key_name():
+    return "molns_sshkey_{0}".format(hex(int(time.time())).replace('0x',''))
 ##########################################
 class EC2Provider(EC2Base):
     """ Provider handle for an Amazon EC2 service. """
@@ -55,7 +58,7 @@ class EC2Provider(EC2Base):
     ('aws_region',
         {'q':'EC2 AWS region', 'default':EC2Provider_config_get_region(), 'ask':True}),
     ('key_name',
-        {'q':'EC2 Key Pair name', 'default':None, 'ask':True}),
+        {'q':'EC2 Key Pair name', 'default':EC2Provider_default_key_name(), 'ask':True}),
     ('group_name',
         {'q':'EC2 Security Group name', 'default':'molns', 'ask':True}),
     ('ubuntu_image_name',

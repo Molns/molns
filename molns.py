@@ -735,7 +735,7 @@ class MOLNSProvider():
         setup_object(provider_obj)
         config.save_object(provider_obj, kind='Provider')
         #
-        print "Checking if all config artifacts."
+        print "Checking all config artifacts."
         # check for ssh key
         if provider_obj['key_name'] is None or provider_obj['key_name'] == '':
             print "Error: no key_name specified."
@@ -764,9 +764,10 @@ class MOLNSProvider():
                 print "Error: no ubuntu_image_name given, can not create molns image."
                 #TODO: search for ubuntu image
             else:
+                print "Creating new image, this process can take a long time (10-30 minutes)."
                 provider_obj['molns_image_name'] = provider_obj.create_molns_image()
         elif not provider_obj.check_molns_image():
-            print "Error: molns image given but not available in cloud."
+            print "Error: an molns image was provided, but it is not available in cloud."
             return
 
         print "Success."
