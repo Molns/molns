@@ -1,0 +1,152 @@
+<!doctype html>
+<html>
+  <head>
+    <meta charset="utf-8">
+    <meta http-equiv="X-UA-Compatible" content="chrome=1">
+    <title>Molns by Molns</title>
+
+    <link rel="stylesheet" href="stylesheets/styles.css">
+    <link rel="stylesheet" href="stylesheets/pygment_trac.css">
+    <script src="javascripts/scale.fix.js"></script>
+    <meta name="viewport" content="width=device-width, initial-scale=1, user-scalable=no">
+
+    <!--[if lt IE 9]>
+    <script src="//html5shiv.googlecode.com/svn/trunk/html5.js"></script>
+    <![endif]-->
+  </head>
+  <body>
+    <div class="wrapper">
+      <header>
+        <h1>Molns</h1>
+        <p>MOLNs: a cloud appliance for systems biology applications</p>
+        <p class="view"><a href="https://github.com/Molns/molns">View the Project on GitHub <small>Molns/molns</small></a></p>
+        <ul>
+          <li><a href="https://github.com/Molns/molns/zipball/master">Download <strong>ZIP File</strong></a></li>
+          <li><a href="https://github.com/Molns/molns/tarball/master">Download <strong>TAR Ball</strong></a></li>
+          <li><a href="https://github.com/Molns/molns">View On <strong>GitHub</strong></a></li>
+        </ul>
+      </header>
+      <section>
+        <h1>
+<a id="molns-spatial-stochastic-simulation-appliance" class="anchor" href="#molns-spatial-stochastic-simulation-appliance" aria-hidden="true"><span class="octicon octicon-link"></span></a>MOLNs spatial stochastic simulation appliance</h1>
+
+<p>MOLNs is a cloud appliance that will set up, start and manage a virtual platform for scalable, distributed computational experiments using PyURDME (<a href="http://www.pyurdme.org">www.pyurdme.org</a>). </p>
+
+<h3>
+<a id="prerequisites" class="anchor" href="#prerequisites" aria-hidden="true"><span class="octicon octicon-link"></span></a>Prerequisites</h3>
+
+<p>To use MOLNs, you need valid credentials to an OpenStack cloud, Amazon Elastic Compute Cloud (EC2) or HP Helion public cloud. You also need Python, and the following packages:</p>
+
+<ul>
+<li>sqlalchemy</li>
+<li>boto (for EC2)</li>
+<li>paramiko</li>
+<li>novaclient (for OpenStack)</li>
+</ul>
+
+<p>To prepare your system:</p>
+
+<ol>
+<li><p>Install pip
+If you don't have pip, the python packagem manager, installed
+already, you will need to install it. The best way to do that
+is to use the 'get-pip' script, which can be found here:
+<a href="https://bootstrap.pypa.io/get-pip.py">https://bootstrap.pypa.io/get-pip.py</a></p></li>
+<li>
+<p>Install python packages with pip:</p>
+
+<ul>
+<li>sudo pip install sqlalchemy</li>
+<li>sudo pip install boto</li>
+<li>sudo pip install paramiko
+
+<ul>
+<li>Install of paramiko will fail if Python development libraries are missing, if that is the case
+
+<ul>
+<li>sudo apt-get install python-dev</li>
+</ul>
+</li>
+</ul>
+</li>
+<li>sudo pip install python-novaclient
+
+<ul>
+<li>In case of problems, more information can be found <a href="http://docs.openstack.org/user-guide/content/install_clients.html">here</a>. </li>
+</ul>
+</li>
+</ul>
+</li>
+<li>
+<p>Download and install MOLNs:</p>
+
+<p>Download the lastest version of molns from this web address:
+    <a href="https://github.com/Molns/molns/archive/master.zip">https://github.com/Molns/molns/archive/master.zip</a>
+This will download the compressed, archive "molns-master.zip". Next, 
+uncompress the archive to create the folder "molns-master". Finally,
+move this folder to the location you want molns installed on your system.</p>
+</li>
+<li>
+<p>Configure your shell:</p>
+
+<p>Molns needs to know where it has been installed. The easiest
+way to this is to add a line to your shell configuration file.
+The default shell on OSX is bash, thus the ".bash_profile" file
+in your home directory is the configuration file. On Ubuntu, the
+file ".bashrc" in your home directory is sometimes the configuration
+file. Add this line:
+    source "/PATH/TO/MOLNS/INSTALLATION/molns_init.sh"
+where /PATH/TO/MOLNS/INSTALLATION/ is the path to where the molns
+software is installed.</p>
+</li>
+</ol>
+
+<h4>
+<a id="obtaining-security-credentialsapi-keys" class="anchor" href="#obtaining-security-credentialsapi-keys" aria-hidden="true"><span class="octicon octicon-link"></span></a>Obtaining Security Credentials/API keys</h4>
+
+<p>The molns CLI will prompt you for your access credentials for the cloud provider you want to use. This involves setting up accounts at the provider(s) of choice. Currently, <a href="http://aws.amazon.com/ec2/">Amazon EC2</a> and OpenStack, which includes <a href="http://www8.hp.com/us/en/cloud/helion-overview.html">HP Helion</a>, are supported. Please follow the instructions of respective cloud provider to sign up for an account and to obtain API access credentials before beginning to use molns. </p>
+
+<ul>
+<li>Amazon EC2: <a href="http://docs.aws.amazon.com/general/latest/gr/getting-aws-sec-creds.html">Obtain the Access Key ID and Secret Access Key</a><br>
+</li>
+<li>HP Helion/OpenStack: <a href="http://docs.openstack.org/cli-reference/content/cli_openrc.html">Obtain the <em>openrc</em> file</a>.<br>
+</li>
+</ul>
+
+<p>** Tip: **
+    molns will prompt you to enter your security credentials. However, it will look for environmental variables and use them as defaults if available. For openstack, simply source the <em>openrc</em> file you downloaded. For EC2, set the following environmental variables:</p>
+
+<p>$ export AWS_ACCESS_KEY = &lt; Access Key ID &gt;
+   $ export AWS_SECRET_KEY = &lt; Secret Access Key &gt;</p>
+
+<h3>
+<a id="quick-start" class="anchor" href="#quick-start" aria-hidden="true"><span class="octicon octicon-link"></span></a>Quick start</h3>
+
+<p>To set up a start a MOLNs virtual platform named "molns-test" in a cloud provider "Provider", execute the following sequence of commands (you will be taken through and interactive setup process)</p>
+
+<pre><code>$ molns provider setup Provider
+$ molns controller setup molns-test
+$ molns worker setup molns-test-workers
+$ molns start molns-test
+$ molns worker start molns-test-workers
+</code></pre>
+
+<p>You will be presented with a URL for the controller node of your platform. Navigate there using a browser (Google Chrome or Firefox are recommended). The easiest way to get started using the platform is to dive into one of the provided tutorial notebooks that are made available in every fresh MOLNs virtual platform.  </p>
+
+<p>For a complete list of the valid subcommands for molns, type 
+    $ molns help</p>
+
+<h3>
+<a id="above-commands-explained" class="anchor" href="#above-commands-explained" aria-hidden="true"><span class="octicon octicon-link"></span></a>Above commands explained</h3>
+
+<p>The molns CLI works with three abstractions for setting up and managing your virtual platform: <em>Provider</em>, <em>Controller</em> and <em>Worker</em> objects. <em>Provider</em> represents an IaaS provider (EC2, OpenStack), <em>Controller</em> represents a head node of the Molns cluster, and hosts the IPython Parallel controller and the IPython Notebook server. If the controller node has X VCPUs, X-2 Ipython engines (workers) will be deployed on the controller host.  <em>Worker</em> represents one or more nodes hosting additional IPython engines.</p>
+      </section>
+    </div>
+    <footer>
+      <p>Project maintained by <a href="https://github.com/Molns">Molns</a></p>
+      <p>Hosted on GitHub Pages &mdash; Theme by <a href="https://github.com/orderedlist">orderedlist</a></p>
+    </footer>
+    <!--[if !IE]><script>fixScale(document);</script><![endif]-->
+    
+  </body>
+</html>
