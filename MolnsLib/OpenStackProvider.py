@@ -177,8 +177,11 @@ class OpenStackProvider(OpenStackBase):
         finally:
             logging.debug("terminating {0}".format(instance))
             instance.delete()
-            logging.debug("deleteing floating ip {0}".format(ip))
-            self._delete_floating_ip(ip)
+            try:
+                logging.debug("deleteing floating ip {0}".format(ip))
+                self._delete_floating_ip(ip)
+            except ProviderException as e:
+                logging.error("Error deleteing floating IP: {0}".format(e))
         return image_id
 
     def _connect(self):

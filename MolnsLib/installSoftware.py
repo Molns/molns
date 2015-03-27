@@ -65,8 +65,7 @@ class InstallSW:
        
         # IPython install
         [   "sudo rm -rf ipython;git clone --recursive https://github.com/Molns/ipython.git",
-            "cd ipython && git checkout tags/rel-2.2.0 && python setup.py submodule && sudo python setup.py install",
-            "cd ipython  && python setup.py submodule && sudo python setup.py install",
+            "cd ipython && git checkout 3.0.0-molns_fixes && python setup.py submodule && sudo python setup.py install",
             "sudo rm -rf ipython",
             "ipython profile create default",
         ],
