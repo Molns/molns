@@ -21,7 +21,8 @@ class OpenStackBase(ProviderBase):
     PROVIDER_TYPE = 'OpenStack'
 
 def OpenStackProvider_default_key_name():
-    return "molns_sshkey_{0}".format(hex(int(time.time())).replace('0x',''))
+    user = os.environ.get('USER') or 'USER'
+    return "{0}_molns_sshkey_{1}".format(user, hex(int(time.time())).replace('0x',''))
 ##########################################
 class OpenStackProvider(OpenStackBase):
     """ Provider handle for an open stack service. """
