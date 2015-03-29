@@ -451,12 +451,24 @@ class OpenStackWorkerGroup(OpenStackController):
         if isinstance(nova_instance, list):
             ret = []
             for i in nova_instance:
-                ip = self.provider._attach_floating_ip(i)
-                i  = self.datastore.get_instance(provider_instance_identifier=i.id, ip_address=ip, provider_id=self.provider.id, controller_id=self.controller.id, worker_group_id=self.id)
-                ret.append(i)
+                try:
+                    ip = self.provider._attach_floating_ip(i)
+                except Exception as e:
+                    logging.exception(e)
+                    logging.debug("Terminating instance {0}".format(i.id))
+                    i.delete()
+                inst  = self.datastore.get_instance(provider_instance_identifier=i.id, ip_address=ip, provider_id=self.provider.id, controller_id=self.controller.id, worker_group_id=self.id)
+                ret.append(inst)
             return ret
         else:
-            ip = self.provider._attach_floating_ip(nova_instance)
+            try:
+                ip = self.provider._attach_floating_ip(nova_instance)
+            except Exception as e:
+                logging.exception(e)
+                logging.debug("Terminating instance {0}".format(nova_instance.id))
+                nova_instance.delete()
+                raise e
+
             i  = self.datastore.get_instance(provider_instance_identifier=nova_instance.id, ip_address=ip, provider_id=self.provider.id, controller_id=self.controller.id, worker_group_id=self.id)
             return i
 

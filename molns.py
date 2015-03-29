@@ -3,6 +3,7 @@ import os
 import re
 import sys
 from MolnsLib.molns_datastore import Datastore, DatastoreException, VALID_PROVIDER_TYPES
+from MolnsLib.molns_provider import ProviderException
 from collections import OrderedDict
 import subprocess
 from MolnsLib.ssh_deploy import SSHDeploy
@@ -553,9 +554,12 @@ class MOLNSWorkerGroup(MOLNSbase):
         controller_ip = cls.__launch_workers__get_controller(worker_obj, config)
         if controller_ip is None: return
         #logging.debug("\tcontroller_ip={0}".format(controller_ip))
-        inst_to_deploy = cls.__launch_worker__start_or_resume_vms(worker_obj, config, num_vms_to_start)
-        #logging.debug("\tinst_to_deploy={0}".format(inst_to_deploy))
-        cls.__launch_worker__deploy_engines(worker_obj, controller_ip, inst_to_deploy, config)
+        try:
+            inst_to_deploy = cls.__launch_worker__start_or_resume_vms(worker_obj, config, num_vms_to_start)
+            #logging.debug("\tinst_to_deploy={0}".format(inst_to_deploy))
+            cls.__launch_worker__deploy_engines(worker_obj, controller_ip, inst_to_deploy, config)
+        except ProviderException as e:
+            print "Could not start workers: {0}".format(e)
 
     
     @classmethod
@@ -574,8 +578,11 @@ class MOLNSWorkerGroup(MOLNSbase):
         if worker_obj is None: return
         controller_ip = cls.__launch_workers__get_controller(worker_obj, config)
         if controller_ip is None: return
-        inst_to_deploy = cls.__launch_worker__start_vms(worker_obj, num_vms_to_start)
-        cls.__launch_worker__deploy_engines(worker_obj, controller_ip, inst_to_deploy, config)
+        try:
+            inst_to_deploy = cls.__launch_worker__start_vms(worker_obj, num_vms_to_start)
+            cls.__launch_worker__deploy_engines(worker_obj, controller_ip, inst_to_deploy, config)
+        except ProviderException as e:
+            print "Could not start workers: {0}".format(e)
 
     @classmethod
     def __launch_workers__get_controller(cls, worker_obj, config):
