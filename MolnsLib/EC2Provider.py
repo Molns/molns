@@ -54,7 +54,8 @@ def EC2Provider_config_get_ubuntu_images_by_region(conf=None):
     return None
 
 def EC2Provider_default_key_name():
-    return "molns_sshkey_{0}".format(hex(int(time.time())).replace('0x',''))
+    user = os.environ.get('USER') or 'USER'
+    return "{0}_molns_sshkey_{1}".format(user, hex(int(time.time())).replace('0x',''))
 ##########################################
 class EC2Provider(EC2Base):
     """ Provider handle for an Amazon EC2 service. """

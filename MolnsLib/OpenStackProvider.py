@@ -21,7 +21,8 @@ class OpenStackBase(ProviderBase):
     PROVIDER_TYPE = 'OpenStack'
 
 def OpenStackProvider_default_key_name():
-    return "molns_sshkey_{0}".format(hex(int(time.time())).replace('0x',''))
+    user = os.environ.get('USER') or 'USER'
+    return "{0}_molns_sshkey_{1}".format(user, hex(int(time.time())).replace('0x',''))
 ##########################################
 class OpenStackProvider(OpenStackBase):
     """ Provider handle for an open stack service. """
@@ -177,8 +178,11 @@ class OpenStackProvider(OpenStackBase):
         finally:
             logging.debug("terminating {0}".format(instance))
             instance.delete()
-            logging.debug("deleteing floating ip {0}".format(ip))
-            self._delete_floating_ip(ip)
+            try:
+                logging.debug("deleteing floating ip {0}".format(ip))
+                self._delete_floating_ip(ip)
+            except ProviderException as e:
+                logging.error("Error deleteing floating IP: {0}".format(e))
         return image_id
 
     def _connect(self):
@@ -447,12 +451,24 @@ class OpenStackWorkerGroup(OpenStackController):
         if isinstance(nova_instance, list):
             ret = []
             for i in nova_instance:
-                ip = self.provider._attach_floating_ip(i)
-                i  = self.datastore.get_instance(provider_instance_identifier=i.id, ip_address=ip, provider_id=self.provider.id, controller_id=self.controller.id, worker_group_id=self.id)
-                ret.append(i)
+                try:
+                    ip = self.provider._attach_floating_ip(i)
+                except Exception as e:
+                    logging.exception(e)
+                    logging.debug("Terminating instance {0}".format(i.id))
+                    i.delete()
+                inst  = self.datastore.get_instance(provider_instance_identifier=i.id, ip_address=ip, provider_id=self.provider.id, controller_id=self.controller.id, worker_group_id=self.id)
+                ret.append(inst)
             return ret
         else:
-            ip = self.provider._attach_floating_ip(nova_instance)
+            try:
+                ip = self.provider._attach_floating_ip(nova_instance)
+            except Exception as e:
+                logging.exception(e)
+                logging.debug("Terminating instance {0}".format(nova_instance.id))
+                nova_instance.delete()
+                raise e
+
             i  = self.datastore.get_instance(provider_instance_identifier=nova_instance.id, ip_address=ip, provider_id=self.provider.id, controller_id=self.controller.id, worker_group_id=self.id)
             return i
 
