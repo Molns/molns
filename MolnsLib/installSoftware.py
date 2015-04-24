@@ -30,6 +30,7 @@ class InstallSW:
         "sudo apt-get -y install build-essential python-dev",
         "sudo apt-get -y install python-setuptools",
         "sudo apt-get -y install python-matplotlib python-numpy python-scipy",
+        "sudo apt-get -y remove python-scipy",
         "sudo apt-get -y install make",
         "sudo apt-get -y install python-software-properties",
         "sudo add-apt-repository ppa:fenics-packages/fenics",
@@ -40,6 +41,8 @@ class InstallSW:
         "sudo pip install pyzmq --upgrade",
         "sudo pip install dill cloud pygments",
         "sudo pip install tornado Jinja2",
+        "sudo pip install scipy",
+
         
         # For molnsutil
         "sudo pip install jsonschema jsonpointer",
