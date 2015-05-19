@@ -40,7 +40,7 @@ class OpenStackProvider(OpenStackBase):
     ('nova_auth_url',
         {'q':'OpenStack auth_url', 'default':os.environ.get('OS_AUTH_URL'), 'ask':True}),
     ('nova_project_id',
-        {'q':'OpenStack project_id', 'default':os.environ.get('OS_TENANT_NAME'), 'ask':True}),
+        {'q':'OpenStack project_name', 'default':os.environ.get('OS_TENANT_NAME'), 'ask':True}),
     ('neutron_nic',
         {'q':'Network ID (leave empty if only one possible network)', 'default':None, 'ask':True}),    
     ('floating_ip_pool',
