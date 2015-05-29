@@ -30,7 +30,6 @@ class InstallSW:
         "sudo apt-get -y install build-essential python-dev",
         "sudo apt-get -y install python-setuptools",
         "sudo apt-get -y install python-matplotlib python-numpy python-scipy",
-        "sudo apt-get -y remove python-scipy",
         "sudo apt-get -y install make",
         "sudo apt-get -y install python-software-properties",
         "sudo add-apt-repository ppa:fenics-packages/fenics",
@@ -41,7 +40,6 @@ class InstallSW:
         "sudo pip install pyzmq --upgrade",
         "sudo pip install dill cloud pygments",
         "sudo pip install tornado Jinja2",
-        "sudo pip install scipy",
 
         
         # For molnsutil
@@ -52,6 +50,7 @@ class InstallSW:
         # This set of packages is really only needed for OpenStack, but molnsutil uses them
         "sudo apt-get -y install libxml2-dev libxslt1-dev python-dev",
         "sudo pip install python-novaclient",
+        "sudo easy_install -U pip",
         "sudo pip install python-keystoneclient",
         "sudo pip install python-swiftclient",
         # So the workers can mount the controller via SSHfs
@@ -86,11 +85,15 @@ class InstallSW:
         ],
         [
           "sudo rm -rf /usr/local/molnsutil;sudo mkdir -p /usr/local/molnsutil;sudo chown ubuntu /usr/local/molnsutil",
-          "cd /usr/local/ && git clone https://github.com/Molns/molnsutil.git",
+          "cd /usr/local/ && git clone https://github.com/ahellander/molnsutil.git",
           "cd /usr/local/molnsutil && sudo python setup.py install"
         ],
         "python -c \"from IPython.external import mathjax; mathjax.install_mathjax(tag='2.2.0')\"",
         
+        # Upgrade scipy from pip to get rid of six.py bug on Trusty
+        "sudo apt-get -y remove python-scipy",
+        "sudo pip install scipy",
+                    
         "sync",  # This is critial for some infrastructures.
     ]
     
