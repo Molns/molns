@@ -1003,10 +1003,7 @@ COMMAND_LIST = [
                 function=MOLNSInstances.clear_instances),
         ]),
                 
-        SubCommand('spark',[
-            Command('start',{'ID':None}, function=MOLNSController.start_spark)
-        ])
-    ]
+                ]
 
 def printHelp():
     print "molns <command> <command-args>"
