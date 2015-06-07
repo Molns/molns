@@ -468,6 +468,10 @@ class MOLNSController(MOLNSbase):
             fd.write(client_file_data)
         print "Success"
 
+    @classmethod
+    def start_spark(cls, args, config):
+        """ Start Apache Spark on the cluster. """
+
 ###############################################
 
 class MOLNSWorkerGroup(MOLNSbase):
@@ -997,8 +1001,9 @@ COMMAND_LIST = [
                 function=MOLNSInstances.delete_instance),
             Command('clear', {},
                 function=MOLNSInstances.clear_instances),
-        ])
-    ]
+        ]),
+                
+                ]
 
 def printHelp():
     print "molns <command> <command-args>"
