@@ -266,6 +266,32 @@ class MOLNSController(MOLNSbase):
         subprocess.call(cmd)
         print "SSH process completed"
 
+    @classmethod
+    def upload_controller(cls, args, config):
+        """ Copy a local file to the controller's home directory. """
+        logging.debug("MOLNSController.upload_controller(args={0})".format(args))
+        controller_obj = cls._get_controllerobj(args, config)
+        if controller_obj is None: return
+        # Check if any instances are assigned to this controller
+        instance_list = config.get_controller_instances(controller_id=controller_obj.id)
+        #logging.debug("instance_list={0}".format(instance_list))
+        # Check if they are running
+        ip = None
+        if len(instance_list) > 0:
+            for i in instance_list:
+                status = controller_obj.get_instance_status(i)
+                logging.debug("instance={0} has status={1}".format(i, status))
+                if status == controller_obj.STATUS_RUNNING:
+                    ip = i.ip_address
+        if ip is None:
+            print "No active instance for this controller"
+            return
+        #print " ".join(['/usr/bin/ssh','-oStrictHostKeyChecking=no','-oUserKnownHostsFile=/dev/null','-i',controller_obj.provider.sshkeyfilename(),'ubuntu@{0}'.format(ip)])
+        #os.execl('/usr/bin/ssh','-oStrictHostKeyChecking=no','-oUserKnownHostsFile=/dev/null','-i',controller_obj.provider.sshkeyfilename(),'ubuntu@{0}'.format(ip))
+        cmd = ['/usr/bin/scp','-r','-oStrictHostKeyChecking=no','-oUserKnownHostsFile=/dev/null','-i',controller_obj.provider.sshkeyfilename(), args[1], 'ubuntu@{0}:/home/ubuntu/'.format(ip)]
+        print " ".join(cmd)
+        subprocess.call(cmd)
+        print "SSH process completed"
 
     @classmethod
     def put_controller(cls, args, config):
@@ -945,7 +971,8 @@ COMMAND_LIST = [
             function=MOLNSController.terminate_controller),
         Command('put', {'name':None, 'file':None},
             function=MOLNSController.put_controller),
-                
+        Command('upload', {'name':None, 'file':None},
+            function=MOLNSController.upload_controller),
         #Command('local-connect', {'name':None},
         #    function=MOLNSController.connect_controller_to_local),
         # Commands to interact with controller
