@@ -1021,7 +1021,7 @@ COMMAND_LIST = [
                 function=MOLNSProvider.delete_provider),
         ]),
         # Commands to interact with the instance DB
-        SubCommand('instances',[
+        SubCommand('instancedb',[
             Command('list', {},
                 function=MOLNSInstances.show_instances),
             Command('delete', {'ID':None},
