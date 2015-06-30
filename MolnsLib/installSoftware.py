@@ -40,6 +40,7 @@ class InstallSW:
         "sudo pip install pyzmq --upgrade",
         "sudo pip install dill cloud pygments",
         "sudo pip install tornado Jinja2",
+
         
         # For molnsutil
         "sudo pip install jsonschema jsonpointer",
@@ -49,6 +50,7 @@ class InstallSW:
         # This set of packages is really only needed for OpenStack, but molnsutil uses them
         "sudo apt-get -y install libxml2-dev libxslt1-dev python-dev",
         "sudo pip install python-novaclient",
+        "sudo easy_install -U pip",
         "sudo pip install python-keystoneclient",
         "sudo pip install python-swiftclient",
         # So the workers can mount the controller via SSHfs
@@ -65,13 +67,13 @@ class InstallSW:
        
         # IPython install
         [   "sudo rm -rf ipython;git clone --recursive https://github.com/Molns/ipython.git",
-            "cd ipython && git checkout tags/rel-2.2.0 && python setup.py submodule && sudo python setup.py install",
-            "cd ipython  && python setup.py submodule && sudo python setup.py install",
+            "cd ipython && git checkout 3.0.0-molns_fixes && python setup.py submodule && sudo python setup.py install",
             "sudo rm -rf ipython",
             "ipython profile create default",
+            "sudo pip install terminado",  #Jupyter terminals
         ],
         [   "sudo rm -rf /usr/local/pyurdme;sudo mkdir -p /usr/local/pyurdme;sudo chown ubuntu /usr/local/pyurdme",
-            "cd /usr/local/ && git clone https://github.com/ahellander/pyurdme.git",
+            "cd /usr/local/ && git clone https://github.com/MOLNs/pyurdme.git",
             "cd /usr/local/pyurdme && git checkout develop",
          
             "cp /usr/local/pyurdme/pyurdme/data/three.js_templates/js/* .ipython/profile_default/static/custom/",
@@ -88,6 +90,10 @@ class InstallSW:
         ],
         "python -c \"from IPython.external import mathjax; mathjax.install_mathjax(tag='2.2.0')\"",
         
+        # Upgrade scipy from pip to get rid of six.py bug on Trusty
+        "sudo apt-get -y remove python-scipy",
+        "sudo pip install scipy",
+                    
         "sync",  # This is critial for some infrastructures.
     ]
     

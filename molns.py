@@ -3,6 +3,7 @@ import os
 import re
 import sys
 from MolnsLib.molns_datastore import Datastore, DatastoreException, VALID_PROVIDER_TYPES
+from MolnsLib.molns_provider import ProviderException
 from collections import OrderedDict
 import subprocess
 from MolnsLib.ssh_deploy import SSHDeploy
@@ -44,18 +45,25 @@ def raw_input_default(q, default=None, obfuscate=False):
         return raw_input("{0}:".format(q))
     else:
         if obfuscate:
-            ret = raw_input("{0} [******]:".format(q))
+            ret = raw_input("{0} [******]: ".format(q))
         else:
-            ret = raw_input("{0} [{1}]:".format(q, default))
+            ret = raw_input("{0} [{1}]: ".format(q, default))
         if ret == '':
             return default
         else:
             return ret.strip()
 
-def raw_input_default_config(q, default=None):
+def raw_input_default_config(q, default=None, obj=None):
     """ Ask the user and process the response with a default value. """
     if default is None:
-        default = q['default']
+        if callable(q['default']):
+            f1 = q['default']
+            try:
+                default = f1(obj)
+            except TypeError:
+                pass
+        else:
+            default = q['default']
     if 'ask' in q and not q['ask']:
         return default
     if 'obfuscate' in q and q['obfuscate']:
@@ -66,7 +74,7 @@ def raw_input_default_config(q, default=None):
 def setup_object(obj):
     """ Setup a molns_datastore object using raw_input_default function. """
     for key, conf, value in obj.get_config_vars():
-        obj[key] = raw_input_default_config(conf, default=value)
+        obj[key] = raw_input_default_config(conf, default=value, obj=obj)
 
 ###############################################
 class SubCommand():
@@ -234,7 +242,7 @@ class MOLNSController(MOLNSbase):
     @classmethod
     def ssh_controller(cls, args, config):
         """ SSH into the controller. """
-        #logging.debug("MOLNSController.ssh_controller(args={0})".format(args))
+        logging.debug("MOLNSController.ssh_controller(args={0})".format(args))
         controller_obj = cls._get_controllerobj(args, config)
         if controller_obj is None: return
         # Check if any instances are assigned to this controller
@@ -257,12 +265,40 @@ class MOLNSController(MOLNSbase):
         print " ".join(cmd)
         subprocess.call(cmd)
         print "SSH process completed"
+
+
+    @classmethod
+    def put_controller(cls, args, config):
+        """ Copy a local file to the controller's shared area. """
+        logging.debug("MOLNSController.put_controller(args={0})".format(args))
+        controller_obj = cls._get_controllerobj(args, config)
+        if controller_obj is None: return
+        # Check if any instances are assigned to this controller
+        instance_list = config.get_controller_instances(controller_id=controller_obj.id)
+        #logging.debug("instance_list={0}".format(instance_list))
+        # Check if they are running
+        ip = None
+        if len(instance_list) > 0:
+            for i in instance_list:
+                status = controller_obj.get_instance_status(i)
+                logging.debug("instance={0} has status={1}".format(i, status))
+                if status == controller_obj.STATUS_RUNNING:
+                    ip = i.ip_address
+        if ip is None:
+            print "No active instance for this controller"
+            return
+        #print " ".join(['/usr/bin/ssh','-oStrictHostKeyChecking=no','-oUserKnownHostsFile=/dev/null','-i',controller_obj.provider.sshkeyfilename(),'ubuntu@{0}'.format(ip)])
+        #os.execl('/usr/bin/ssh','-oStrictHostKeyChecking=no','-oUserKnownHostsFile=/dev/null','-i',controller_obj.provider.sshkeyfilename(),'ubuntu@{0}'.format(ip))
+        cmd = ['/usr/bin/scp','-oStrictHostKeyChecking=no','-oUserKnownHostsFile=/dev/null','-i',controller_obj.provider.sshkeyfilename(), args[1], 'ubuntu@{0}:/home/ubuntu/shared'.format(ip)]
+        print " ".join(cmd)
+        subprocess.call(cmd)
+        print "SSH process completed"
         
 
     @classmethod
     def status_controller(cls, args, config):
         """ Get status of the head node of a MOLNs controller. """
-        #logging.debug("MOLNSController.status_controller(args={0})".format(args))
+        logging.debug("MOLNSController.status_controller(args={0})".format(args))
         if len(args) > 0:
             controller_obj = cls._get_controllerobj(args, config)
             if controller_obj is None: return
@@ -312,7 +348,7 @@ class MOLNSController(MOLNSbase):
     @classmethod
     def start_controller(cls, args, config):
         """ Start the MOLNs controller. """
-        #logging.debug("MOLNSController.start_controller(args={0})".format(args))
+        logging.debug("MOLNSController.start_controller(args={0})".format(args))
         controller_obj = cls._get_controllerobj(args, config)
         if controller_obj is None: return
         # Check if any instances are assigned to this controller
@@ -343,7 +379,7 @@ class MOLNSController(MOLNSbase):
     @classmethod
     def stop_controller(cls, args, config):
         """ Stop the head node of a MOLNs controller. """
-        #logging.debug("MOLNSController.stop_controller(args={0})".format(args))
+        logging.debug("MOLNSController.stop_controller(args={0})".format(args))
         controller_obj = cls._get_controllerobj(args, config)
         if controller_obj is None: return
         # Check if any instances are assigned to this controller
@@ -371,16 +407,17 @@ class MOLNSController(MOLNSbase):
     @classmethod
     def terminate_controller(cls, args, config):
         """ Terminate the head node of a MOLNs controller. """
-        #logging.debug("MOLNSController.terminate_controller(args={0})".format(args))
+        logging.debug("MOLNSController.terminate_controller(args={0})".format(args))
         controller_obj = cls._get_controllerobj(args, config)
         if controller_obj is None: return
         instance_list = config.get_all_instances(controller_id=controller_obj.id)
+        logging.debug("\tinstance_list={0}".format([str(i) for i in instance_list]))
         # Check if they are running or stopped 
         if len(instance_list) > 0:
             for i in instance_list:
                 if i.worker_group_id is None:
                     status = controller_obj.get_instance_status(i)
-                    if status == controller_obj.STATUS_RUNNING:
+                    if status == controller_obj.STATUS_RUNNING or status == controller_obj.STATUS_STOPPED:
                         print "Terminating controller running at {0}".format(i.ip_address)
                         controller_obj.terminate_instance(i)
                 else:
@@ -430,6 +467,10 @@ class MOLNSController(MOLNSbase):
         with open(ipython_client_filename, 'w') as fd:
             fd.write(client_file_data)
         print "Success"
+
+    @classmethod
+    def start_spark(cls, args, config):
+        """ Start Apache Spark on the cluster. """
 
 ###############################################
 
@@ -545,9 +586,12 @@ class MOLNSWorkerGroup(MOLNSbase):
         controller_ip = cls.__launch_workers__get_controller(worker_obj, config)
         if controller_ip is None: return
         #logging.debug("\tcontroller_ip={0}".format(controller_ip))
-        inst_to_deploy = cls.__launch_worker__start_or_resume_vms(worker_obj, config, num_vms_to_start)
-        #logging.debug("\tinst_to_deploy={0}".format(inst_to_deploy))
-        cls.__launch_worker__deploy_engines(worker_obj, controller_ip, inst_to_deploy, config)
+        try:
+            inst_to_deploy = cls.__launch_worker__start_or_resume_vms(worker_obj, config, num_vms_to_start)
+            #logging.debug("\tinst_to_deploy={0}".format(inst_to_deploy))
+            cls.__launch_worker__deploy_engines(worker_obj, controller_ip, inst_to_deploy, config)
+        except ProviderException as e:
+            print "Could not start workers: {0}".format(e)
 
     
     @classmethod
@@ -566,8 +610,11 @@ class MOLNSWorkerGroup(MOLNSbase):
         if worker_obj is None: return
         controller_ip = cls.__launch_workers__get_controller(worker_obj, config)
         if controller_ip is None: return
-        inst_to_deploy = cls.__launch_worker__start_vms(worker_obj, num_vms_to_start)
-        cls.__launch_worker__deploy_engines(worker_obj, controller_ip, inst_to_deploy, config)
+        try:
+            inst_to_deploy = cls.__launch_worker__start_vms(worker_obj, num_vms_to_start)
+            cls.__launch_worker__deploy_engines(worker_obj, controller_ip, inst_to_deploy, config)
+        except ProviderException as e:
+            print "Could not start workers: {0}".format(e)
 
     @classmethod
     def __launch_workers__get_controller(cls, worker_obj, config):
@@ -721,8 +768,13 @@ class MOLNSProvider():
             print "Select a provider type:"
             for n,p in enumerate(VALID_PROVIDER_TYPES):
                 print "\t[{0}] {1}".format(n,p)
-            provider_ndx = int(raw_input_default("enter the number of type:", default='0'))
-            provider_type = VALID_PROVIDER_TYPES[provider_ndx]
+            while True:
+                try:
+                    provider_ndx = int(raw_input_default("enter the number of type:", default='0'))
+                    provider_type = VALID_PROVIDER_TYPES[provider_ndx]
+                    break
+                except (ValueError, IndexError):
+                    pass
             logging.debug("provider type '{0}'".format(provider_type))
             # Create provider
             try:
@@ -735,11 +787,10 @@ class MOLNSProvider():
         setup_object(provider_obj)
         config.save_object(provider_obj, kind='Provider')
         #
-        print "Checking if all config artifacts."
+        print "Checking all config artifacts."
         # check for ssh key
         if provider_obj['key_name'] is None or provider_obj['key_name'] == '':
             print "Error: no key_name specified."
-            #TODO: search for existing keys on disk+cloud
             return
         elif not provider_obj.check_ssh_key():
             print "Creating key '{0}'".format(provider_obj['key_name'])
@@ -750,7 +801,6 @@ class MOLNSProvider():
         # check for security group
         if provider_obj['group_name'] is None or provider_obj['group_name'] == '':
             print "Error: no security group specified."
-            #TODO: search for existing keys on disk+cloud
             return
         elif not provider_obj.check_security_group():
             print "Creating security group '{0}'".format(provider_obj['group_name'])
@@ -762,11 +812,11 @@ class MOLNSProvider():
         if provider_obj['molns_image_name'] is None or provider_obj['molns_image_name'] == '':
             if provider_obj['ubuntu_image_name'] is None or provider_obj['ubuntu_image_name'] == '':
                 print "Error: no ubuntu_image_name given, can not create molns image."
-                #TODO: search for ubuntu image
             else:
+                print "Creating new image, this process can take a long time (10-30 minutes)."
                 provider_obj['molns_image_name'] = provider_obj.create_molns_image()
         elif not provider_obj.check_molns_image():
-            print "Error: molns image given but not available in cloud."
+            print "Error: an molns image was provided, but it is not available in cloud."
             return
 
         print "Success."
@@ -787,7 +837,6 @@ class MOLNSProvider():
             provider_obj = config.get_object(args[0], kind='Provider')
             if provider_obj['ubuntu_image_name'] is None or provider_obj['ubuntu_image_name'] == '':
                 print "Error: no ubuntu_image_name given, can not create molns image."
-                #TODO: search for ubuntu image
             else:
                 provider_obj['molns_image_name'] = provider_obj.create_molns_image()
                 print "Success. new image = {0}".format(provider_obj['molns_image_name'])
@@ -894,6 +943,9 @@ COMMAND_LIST = [
             function=MOLNSController.stop_controller),
         Command('terminate', {'name':None},
             function=MOLNSController.terminate_controller),
+        Command('put', {'name':None, 'file':None},
+            function=MOLNSController.put_controller),
+                
         #Command('local-connect', {'name':None},
         #    function=MOLNSController.connect_controller_to_local),
         # Commands to interact with controller
@@ -949,8 +1001,9 @@ COMMAND_LIST = [
                 function=MOLNSInstances.delete_instance),
             Command('clear', {},
                 function=MOLNSInstances.clear_instances),
-        ])
-    ]
+        ]),
+                
+                ]
 
 def printHelp():
     print "molns <command> <command-args>"
@@ -965,12 +1018,16 @@ def parseArgs():
         printHelp()
         return
     
-    if sys.argv[1].startswith('--config='):
-        config_dir = sys.argv[1].split('=',2)[1]
-        arg_list = sys.argv[2:]
-    else:
-        config_dir = './.molns/'
-        arg_list = sys.argv[1:]
+    arg_list = sys.argv[1:]
+    config_dir = './.molns/'
+    while len(arg_list) > 0 and arg_list[0].startswith('--'):
+        if arg_list[0].startswith('--config='):
+            config_dir = sys.argv[1].split('=',2)[1]
+        if arg_list[0].startswith('--debug'):
+            print "Turning on Debugging output"
+            logger.setLevel(logging.DEBUG)  #for Debugging
+            #logger.setLevel(logging.INFO)  #for Debugging
+        arg_list = arg_list[1:]
     
     #print "config_dir", config_dir
     #print "arg_list ", arg_list

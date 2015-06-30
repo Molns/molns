@@ -3,7 +3,7 @@
 MOLNs is a cloud appliance that will set up, start and manage a virtual platform for scalable, distributed computational experiments using PyURDME (www.pyurdme.org). 
 
 ### Prerequisites ###
-To use MOLNs, you need valid credentials to an OpenStack cloud, Amazon Elastic Compute Cloud (EC2) or HP Helion public cloud. You also need Python, and the follwing packages:
+To use MOLNs, you need valid credentials to an OpenStack cloud, Amazon Elastic Compute Cloud (EC2) or HP Helion public cloud. You also need Python, and the following packages:
 
 * sqlalchemy
 * boto (for EC2)
@@ -28,13 +28,23 @@ To prepare your system:
     * sudo pip install python-novaclient
         * In case of problems, more information can be found [here](http://docs.openstack.org/user-guide/content/install_clients.html). 
     
-3. Configure your shell:
+3. Download and install MOLNs:
+
+    Download the lastest version of molns from this web address:
+        https://github.com/Molns/molns/archive/master.zip
+    This will download the compressed, archive "molns-master.zip". Next, 
+    uncompress the archive to create the folder "molns-master". Finally,
+    move this folder to the location you want molns installed on your system.
+
+4. Configure your shell:
 
     Molns needs to know where it has been installed. The easiest
-    way to this is to add a line to your shell configureation file.
+    way to this is to add a line to your shell configuration file.
     The default shell on OSX is bash, thus the ".bash_profile" file
-    in your home directory is the configuration file. Add this line:
-        source "/PATH/TO/MOLNS/INSTALLATION/molns_init_.sh"
+    in your home directory is the configuration file. On Ubuntu, the
+    file ".bashrc" in your home directory is sometimes the configuration
+    file. Add this line:
+        source "/PATH/TO/MOLNS/INSTALLATION/molns_init.sh"
     where /PATH/TO/MOLNS/INSTALLATION/ is the path to where the molns
     software is installed.
 
@@ -59,7 +69,7 @@ To set up a start a MOLNs virtual platform named "molns-test" in a cloud provide
     $ molns controller setup molns-test
     $ molns worker setup molns-test-workers
     $ molns start molns-test
-    $ molns start molns-test-workers
+    $ molns worker start molns-test-workers
 
 You will be presented with a URL for the controller node of your platform. Navigate there using a browser (Google Chrome or Firefox are recommended). The easiest way to get started using the platform is to dive into one of the provided tutorial notebooks that are made available in every fresh MOLNs virtual platform.  
 
