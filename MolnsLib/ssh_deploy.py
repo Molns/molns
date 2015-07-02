@@ -395,6 +395,10 @@ class SSHDeploy:
             self.create_engine_config()
             self.exec_command("source /usr/local/pyurdme/pyurdme_init; screen -d -m ipcontroller --profile={1} --ip='*' --location={0} --port={2} --log-to-file".format(ip_address, self.profile, self.ipython_port), '\n')
             # Start one ipengine per processor
+
+            import time
+            time.sleep(10)
+            
             num_procs = self.get_number_processors()
             num_engines = num_procs - 2
             for _ in range(num_engines):
