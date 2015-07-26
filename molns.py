@@ -1056,14 +1056,11 @@ def parseArgs():
             #logger.setLevel(logging.INFO)  #for Debugging
         arg_list = arg_list[1:]
     
-    #print "config_dir", config_dir
-    #print "arg_list ", arg_list
     if len(arg_list) == 0 or arg_list[0] =='help' or arg_list[0] == '-h':
         printHelp()
         return
         
     if arg_list[0] in COMMAND_LIST:
-        #print arg_list[0] + " in COMMAND_LIST"
         for cmd in COMMAND_LIST:
             if cmd == arg_list[0]:
                 try:

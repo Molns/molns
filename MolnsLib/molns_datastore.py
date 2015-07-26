@@ -9,7 +9,7 @@ import logging
 import sys
 #############################################################
 #VALID_PROVIDER_TYPES = ['OpenStack', 'EC2', 'Rackspace']
-VALID_PROVIDER_TYPES = ['OpenStack', 'EC2']
+VALID_PROVIDER_TYPES = ['OpenStack', 'EC2', 'Eucalyptus']
 #############################################################
 #### SCHEMA #################################################
 #############################################################
