@@ -8,6 +8,7 @@ from collections import OrderedDict
 import subprocess
 from MolnsLib.ssh_deploy import SSHDeploy
 import multiprocessing
+import json
 
 import logging
 logger = logging.getLogger()
@@ -15,122 +16,11 @@ logger = logging.getLogger()
 logger.setLevel(logging.CRITICAL)
 ###############################################
 
-class CommandException(Exception):
-    pass
-###############################################
-def table_print(column_names, data):
-    column_width = [0]*len(column_names)
-    for i,n in enumerate(column_names):
-        column_width[i] = len(str(n))
-    for row in data:
-        if len(row) != len(column_names):
-            print "len(row) != len(column_names): {0} vs {1}".format(len(row), len(column_names))
-        for i,n in enumerate(row):
-            if len(str(n)) > column_width[i]:
-                column_width[i] = len(str(n))
-    out = "|".join([ "-"*(column_width[i]+2) for i in range(len(column_names))])
-    print '|'+out+'|'
-    out = " | ".join([ column_names[i].ljust(column_width[i]) for i in range(len(column_names))])
-    print '| '+out+' |'
-    out = "|".join([ "-"*(column_width[i]+2) for i in range(len(column_names))])
-    print '|'+out+'|'
-    for row in data:
-        out = " | ".join([ str(n).ljust(column_width[i]) for i,n in enumerate(row)])
-        print '| '+out+' |'
-    out = "|".join([ "-"*(column_width[i]+2) for i in range(len(column_names))])
-    print '|'+out+'|'
-
-def raw_input_default(q, default=None, obfuscate=False):
-    if default is None or default == '':
-        return raw_input("{0}:".format(q))
-    else:
-        if obfuscate:
-            ret = raw_input("{0} [******]: ".format(q))
-        else:
-            ret = raw_input("{0} [{1}]: ".format(q, default))
-        if ret == '':
-            return default
-        else:
-            return ret.strip()
-
-def raw_input_default_config(q, default=None, obj=None):
-    """ Ask the user and process the response with a default value. """
-    if default is None:
-        if callable(q['default']):
-            f1 = q['default']
-            try:
-                default = f1(obj)
-            except TypeError:
-                pass
-        else:
-            default = q['default']
-    if 'ask' in q and not q['ask']:
-        return default
-    if 'obfuscate' in q and q['obfuscate']:
-        return raw_input_default(q['q'], default=default, obfuscate=True)
-    else:
-        return raw_input_default(q['q'], default=default, obfuscate=False)
-
-def setup_object(obj):
-    """ Setup a molns_datastore object using raw_input_default function. """
-    for key, conf, value in obj.get_config_vars():
-        obj[key] = raw_input_default_config(conf, default=value, obj=obj)
-
-###############################################
-class SubCommand():
-    def __init__(self, command, subcommands):
-        self.command = command
-        self.subcommands = subcommands
-    def __str__(self):
-        r = ''
-        for c in self.subcommands:
-             r +=  self.command + " " + c.__str__() + "\n"
-        return r[:-1]
-    def __eq__(self, other):
-        return self.command == other
-
-    def run(self, args, config_dir=None):
-        #print "SubCommand().run({0}, {1})".format(self.command, args)
-        if len(args) > 0:
-            cmd = args[0]
-            for c in self.subcommands:
-                if c == cmd:
-                    return c.run(args[1:], config_dir=config_dir)
-        raise CommandException("command not found")
-
-###############################################
-class Command():
-    def __init__(self, command, args_defs={}, description=None, function=None):
-        self.command = command
-        self.args_defs = args_defs
-        if function is None:
-            raise Exception("Command must have a function")
-        self.function = function
-        if description is None:
-            self.description = function.__doc__.strip()
-        else:
-            self.description = description
-    def __str__(self):
-        ret = self.command+" "
-        for k,v in self.args_defs.iteritems():
-            if v is None:
-                ret += "[{0}] ".format(k)
-            else:
-                ret += "[{0}={1}] ".format(k,v)
-        ret += "\n\t"+self.description
-        return ret
-        
-    def __eq__(self, other):
-        return self.command == other
-
-    def run(self, args, config_dir=None):
-        config = MOLNSConfig(config_dir=config_dir)
-        self.function(args, config=config)
 
 ###############################################
 class MOLNSConfig(Datastore):
-    def __init__(self, config_dir):
-        Datastore.__init__(self,config_dir=config_dir)
+    def __init__(self, config_dir=None, db_file=None):
+        Datastore.__init__(self,config_dir=config_dir, db_file=db_file)
     
     def __str__(self):
         return "MOLNSConfig(config_dir={0})".format(self.config_dir)
@@ -776,6 +666,58 @@ class MOLNSWorkerGroup(MOLNSbase):
 
 class MOLNSProvider():
     @classmethod
+    def provider_export(cls, args, config):
+        """ Export the configuration of a provider. """
+        if len(args) < 1:
+            print "USAGE: molns provider export name [Filename]"
+            print "\Export the data from the provider with the given name."
+            return
+        provider_name = args[0]
+        # check if provider exists
+        try:
+            provider_obj = config.get_object(args[0], kind='Provider')
+        except DatastoreException as e:
+            print "provider not found"
+            return
+        data = {'name': provider_obj.name,
+                'type': provider_obj.type,
+                'config': provider_obj.config}
+        if len(args) > 1 and args[1] is not None:
+            with open(args[1],'w+') as fd:
+                json.dump(data, fd)
+        else:
+            print json.dumps(data)
+
+    @classmethod
+    def provider_import(cls, args, config):
+        """ Import the configuration of a provider. """
+        if len(args) < 1:
+            print "USAGE: molns provider import [Filename.json]"
+            print "\Import the data from the provider with the given name."
+            return
+        filename = args[0]
+        with open(filename) as fd:
+            data = json.load(fd)
+        provider_name = data['name']
+        if data['type'] not in VALID_PROVIDER_TYPES:
+            print "Error: unknown provider type '{0}'".format(data['type'])
+            return
+        try:
+            provider_obj = config.get_object(provider_name, kind='Provider')
+            print "Found existing provider"
+            if provider_obj.type != data['type']:
+                print "Import data has provider type '{0}'.  Provier {1} exists with type {2}. Type conversion is not possible.".format(data['type'], provider_obj.name, provider_obj.type)
+                return
+        except DatastoreException as e:
+            provider_obj = config.create_object(name=provider_name, ptype=data['type'], kind='Provider')
+            print "Creating new provider"
+        provider_obj.config = data['config']
+        config.save_object(provider_obj, kind='Provider')
+        print "Provider data imported"
+
+
+
+    @classmethod
     def provider_setup(cls, args, config):
         """ Setup a new provider. Create the MOLNS image and SSH key if necessary."""
         #print "MOLNSProvider.provider_setup(args={0})".format(args)
@@ -954,7 +896,125 @@ class MOLNSInstances():
             print "No instance found"
 
 
+##############################################################################################
+##############################################################################################
+##############################################################################################
+##############################################################################################
+##############################################################################################
+##############################################################################################
+# Below is the API for the commmand line execution
 
+class CommandException(Exception):
+    pass
+###############################################
+def table_print(column_names, data):
+    column_width = [0]*len(column_names)
+    for i,n in enumerate(column_names):
+        column_width[i] = len(str(n))
+    for row in data:
+        if len(row) != len(column_names):
+            print "len(row) != len(column_names): {0} vs {1}".format(len(row), len(column_names))
+        for i,n in enumerate(row):
+            if len(str(n)) > column_width[i]:
+                column_width[i] = len(str(n))
+    out = "|".join([ "-"*(column_width[i]+2) for i in range(len(column_names))])
+    print '|'+out+'|'
+    out = " | ".join([ column_names[i].ljust(column_width[i]) for i in range(len(column_names))])
+    print '| '+out+' |'
+    out = "|".join([ "-"*(column_width[i]+2) for i in range(len(column_names))])
+    print '|'+out+'|'
+    for row in data:
+        out = " | ".join([ str(n).ljust(column_width[i]) for i,n in enumerate(row)])
+        print '| '+out+' |'
+    out = "|".join([ "-"*(column_width[i]+2) for i in range(len(column_names))])
+    print '|'+out+'|'
+
+def raw_input_default(q, default=None, obfuscate=False):
+    if default is None or default == '':
+        return raw_input("{0}:".format(q))
+    else:
+        if obfuscate:
+            ret = raw_input("{0} [******]: ".format(q))
+        else:
+            ret = raw_input("{0} [{1}]: ".format(q, default))
+        if ret == '':
+            return default
+        else:
+            return ret.strip()
+
+def raw_input_default_config(q, default=None, obj=None):
+    """ Ask the user and process the response with a default value. """
+    if default is None:
+        if callable(q['default']):
+            f1 = q['default']
+            try:
+                default = f1(obj)
+            except TypeError:
+                pass
+        else:
+            default = q['default']
+    if 'ask' in q and not q['ask']:
+        return default
+    if 'obfuscate' in q and q['obfuscate']:
+        return raw_input_default(q['q'], default=default, obfuscate=True)
+    else:
+        return raw_input_default(q['q'], default=default, obfuscate=False)
+
+def setup_object(obj):
+    """ Setup a molns_datastore object using raw_input_default function. """
+    for key, conf, value in obj.get_config_vars():
+        obj[key] = raw_input_default_config(conf, default=value, obj=obj)
+
+###############################################
+class SubCommand():
+    def __init__(self, command, subcommands):
+        self.command = command
+        self.subcommands = subcommands
+    def __str__(self):
+        r = ''
+        for c in self.subcommands:
+             r +=  self.command + " " + c.__str__() + "\n"
+        return r[:-1]
+    def __eq__(self, other):
+        return self.command == other
+
+    def run(self, args, config_dir=None):
+        #print "SubCommand().run({0}, {1})".format(self.command, args)
+        if len(args) > 0:
+            cmd = args[0]
+            for c in self.subcommands:
+                if c == cmd:
+                    return c.run(args[1:], config_dir=config_dir)
+        raise CommandException("command not found")
+
+###############################################
+class Command():
+    def __init__(self, command, args_defs={}, description=None, function=None):
+        self.command = command
+        self.args_defs = args_defs
+        if function is None:
+            raise Exception("Command must have a function")
+        self.function = function
+        if description is None:
+            self.description = function.__doc__.strip()
+        else:
+            self.description = description
+    def __str__(self):
+        ret = self.command+" "
+        for k,v in self.args_defs.iteritems():
+            if v is None:
+                ret += "[{0}] ".format(k)
+            else:
+                ret += "[{0}={1}] ".format(k,v)
+        ret += "\n\t"+self.description
+        return ret
+        
+    def __eq__(self, other):
+        return self.command == other
+
+    def run(self, args, config_dir=None):
+        config = MOLNSConfig(config_dir=config_dir)
+        self.function(args, config=config)
 ###############################################
 
 COMMAND_LIST = [
@@ -1019,6 +1079,10 @@ COMMAND_LIST = [
                 function=MOLNSProvider.show_provider),
             Command('delete',{'name':None},
                 function=MOLNSProvider.delete_provider),
+            Command('export',{'name':None},
+                function=MOLNSProvider.provider_export),
+            Command('import',{'filename.json':None},
+                function=MOLNSProvider.provider_import),
         ]),
         # Commands to interact with the instance DB
         SubCommand('instancedb',[

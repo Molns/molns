@@ -148,6 +148,8 @@ class Datastore():
         """ Constructor. """
         if db_file is not None:
             self.engine = create_engine('sqlite:///{0}'.format(db_file))
+            if config_dir is None:
+                self.config_dir = os.path.basename(db_file)
         elif config_dir is not None:
             if not os.path.exists(config_dir):
                 os.makedirs(config_dir)
