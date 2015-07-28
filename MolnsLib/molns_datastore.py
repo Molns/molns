@@ -154,6 +154,7 @@ class Datastore():
             if not os.path.exists(config_dir):
                 os.makedirs(config_dir)
             self.engine = create_engine('sqlite:///{0}/{1}'.format(config_dir, self.MOLNS_DATASTORE))
+            self.config_dir = config_dir
         else:
             if not os.path.exists(self.MOLNS_CONFIG_DIR):
                 os.makedirs(self.MOLNS_CONFIG_DIR)
@@ -162,7 +163,6 @@ class Datastore():
         Base.metadata.create_all(self.engine) # Create all the tables
         Session = sessionmaker(bind=self.engine)
         self.session = Session()
-        self.config_dir = config_dir
 
     def __del__(self):
         """ Destructor. """
@@ -261,7 +261,7 @@ class Datastore():
         (handle, d_handle) = HANDLE_MAPPING[kind]
         p = self.session.query(handle).filter_by(id=id).first()
         if p is None:
-            raise DatastoreException("{0} {1} not found".format(kind, name))
+            raise DatastoreException("{0} {1} not found".format(kind, id))
         return self._get_object_data(d_handle, kind, p.type, p)
 
     def _get_object_data(self, d_handle, kind, ptype, p):

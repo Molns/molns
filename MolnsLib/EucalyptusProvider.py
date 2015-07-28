@@ -77,7 +77,7 @@ class EucalyptusProvider(EucalyptusBase):
     ('aws_secret_key',
         {'q':'Eucalyptus secret key', 'default':os.environ.get('EC2_SECRET_KEY'), 'ask':True, 'obfuscate':True}),
     ('ec2_url',
-        {'q':'URL of Eucalyptus service (EC2_URL)', 'default':os.environ.get('EC2_URL'), 'ask':True, 'obfuscate':True}),
+        {'q':'URL of Eucalyptus service (EC2_URL)', 'default':os.environ.get('EC2_URL'), 'ask':True, 'obfuscate':False}),
 #    ('aws_region',
 #        {'q':'Eucalyptus AWS region', 'default':EucalyptusProvider_config_get_region(), 'ask':True}),
     ('key_name',
