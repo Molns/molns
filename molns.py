@@ -2,7 +2,7 @@
 import os
 import re
 import sys
-from MolnsLib.molns_datastore import Datastore, DatastoreException, VALID_PROVIDER_TYPES
+from MolnsLib.molns_datastore import Datastore, DatastoreException, VALID_PROVIDER_TYPES, get_provider_handle
 from MolnsLib.molns_provider import ProviderException
 from collections import OrderedDict
 import subprocess
@@ -117,6 +117,59 @@ class MOLNSController(MOLNSbase):
         config.save_object(controller_obj, kind='Controller')
         msg += "Controller data imported\n"
         return {'msg':msg}
+
+    @classmethod
+    def controller_get_config(cls, name=None, provider_type=None, config=None):
+        """ Return a list of dict of config var for the controller config.
+            Each dict in the list has the keys: 'key', 'value', 'type'
+            
+            Either 'name' or 'provider_type' must be specified.
+            If 'name' is specified, then it will retreive the value from that
+            config and return it in 'value' (or return the string '********'
+            if that config is obfuscated, such passwords).
+            
+        """
+        if config is None:
+            raise MOLNSException("no config specified")
+        if name is None and provider_type is None:
+            raise MOLNSException("Controller name or provider type must be specified")
+        if name is None:
+            if provider_type not in VALID_PROVIDER_TYPES:
+                raise MOLNSException("Unknown provider type '{0}'".format(provider_type))
+            p_hand = get_provider_handle('Controller',provider_type)
+            obj = p_hand('__tmp__',data={},config_dir=config.config_dir)
+        else:
+            try:
+                obj = config.get_object(name, kind='Controller')
+            except DatastoreException as e:
+                raise MOLNSException("Controller {0} not found".format(name))
+
+        ret = []
+        for key, conf, value in obj.get_config_vars():
+            if 'ask' in conf and not conf['ask']:
+                continue
+            if value is not None:
+                myval = value
+            else:
+                if 'default' in conf and conf['default']:
+                    if callable(conf['default']):
+                        f1 = conf['default']
+                        try:
+                            myval = f1()
+                        except TypeError:
+                            pass
+                    else:
+                        myval = conf['default']
+                else:
+                    myval = None
+            if myval is not None and 'obfuscate' in conf and conf['obfuscate']:
+                myval = '********'
+            ret.append({
+                'key':key,
+                'value': myval,
+                'type':'string'
+            })
+        return ret
 
     @classmethod
     def setup_controller(cls, args, config):
@@ -435,9 +488,6 @@ class MOLNSController(MOLNSbase):
             fd.write(client_file_data)
         print "Success"
 
-    @classmethod
-    def start_spark(cls, args, config):
-        """ Start Apache Spark on the cluster. """
 
 ###############################################
 
@@ -503,8 +553,58 @@ class MOLNSWorkerGroup(MOLNSbase):
         msg += "Worker group data imported\n"
         return {'msg':msg}
 
-
-
+    @classmethod
+    def worker_group_get_config(cls, name=None, provider_type=None, config=None):
+        """ Return a list of dict of config var for the worker group config.
+            Each dict in the list has the keys: 'key', 'value', 'type'
+            
+            Either 'name' or 'provider_type' must be specified.
+            If 'name' is specified, then it will retreive the value from that
+            config and return it in 'value' (or return the string '********'
+            if that config is obfuscated, such passwords).
+            
+        """
+        if config is None:
+            raise MOLNSException("no config specified")
+        if name is None and provider_type is None:
+            raise MOLNSException("'name' or 'provider_type' must be specified.")
+        if name is None:
+            if provider_type not in VALID_PROVIDER_TYPES:
+                raise MOLNSException("Unknown provider type '{0}'".format(provider_type))
+            p_hand = get_provider_handle('WorkerGroup',provider_type)
+            obj = p_hand('__tmp__',data={},config_dir=config.config_dir)
+        else:
+            try:
+                obj = config.get_object(name, kind='WorkerGroup')
+            except DatastoreException as e:
+                raise MOLNSException("Worker group {0} not found".format(name))
+        ret = []
+        for key, conf, value in obj.get_config_vars():
+            if 'ask' in conf and not conf['ask']:
+                continue
+            if value is not None:
+                myval = value
+            else:
+                if 'default' in conf and conf['default']:
+                    if callable(conf['default']):
+                        f1 = conf['default']
+                        try:
+                            myval = f1()
+                        except TypeError:
+                            pass
+                    else:
+                        myval = conf['default']
+                else:
+                    myval = None
+            if myval is not None and 'obfuscate' in conf and conf['obfuscate']:
+                myval = '********'
+            ret.append({
+                'key':key,
+                'value': myval,
+                'type':'string'
+            })
+        return ret
+    
     @classmethod
     def setup_worker_groups(cls, args, config):
         """ Configure a worker group. """
@@ -830,6 +930,58 @@ class MOLNSProvider():
         config.save_object(provider_obj, kind='Provider')
         msg += "Provider data imported\n"
         return {'msg':msg}
+        
+    @classmethod
+    def provider_get_config(cls, name=None, provider_type=None, config=None):
+        """ Return a list of dict of config var for the provider config.
+            Each dict in the list has the keys: 'key', 'value', 'type'
+            
+            Either 'name' or 'provider_type' must be specified.
+            If 'name' is specified, then it will retreive the value from that
+            config and return it in 'value' (or return the string '********'
+            if that config is obfuscated, such passwords).
+            
+        """
+        if config is None:
+            raise MOLNSException("no config specified")
+        if name is None and provider_type is None:
+            raise MOLNSException("provider name or type must be specified")
+        if name is None:
+            if provider_type not in VALID_PROVIDER_TYPES:
+                raise MOLNSException("unknown provider type '{0}'".format(provider_type))
+            p_hand = get_provider_handle('Provider',provider_type)
+            obj = p_hand('__tmp__',data={},config_dir=config.config_dir)
+        else:
+            try:
+                obj = config.get_object(name, kind='Provider')
+            except DatastoreException as e:
+                raise MOLNSException("provider {0} not found".format(name))
+        ret = []
+        for key, conf, value in obj.get_config_vars():
+            if 'ask' in conf and not conf['ask']:
+                continue
+            if value is not None:
+                myval = value
+            else:
+                if 'default' in conf and conf['default']:
+                    if callable(conf['default']):
+                        f1 = conf['default']
+                        try:
+                            myval = f1()
+                        except TypeError:
+                            pass
+                    else:
+                        myval = conf['default']
+                else:
+                    myval = None
+            if myval is not None and 'obfuscate' in conf and conf['obfuscate']:
+                myval = '********'
+            ret.append({
+                'key':key,
+                'value': myval,
+                'type':'string'
+            })
+        return ret
 
     @classmethod
     def provider_setup(cls, args, config):
@@ -868,6 +1020,17 @@ class MOLNSProvider():
         print "Enter configuration for provider {0}:".format(args[0])
         setup_object(provider_obj)
         config.save_object(provider_obj, kind='Provider')
+        #
+        cls.provider_initialize(args[0], config)
+
+
+    @classmethod
+    def provider_initialize(cls, provider_name, config):
+        """ Create the MOLNS image and SSH key if necessary."""
+        try:
+            provider_obj = config.get_object(provider_name, kind='Provider')
+        except DatastoreException as e:
+            raise MOLNSException("provider not found")
         #
         print "Checking all config artifacts."
         # check for ssh key

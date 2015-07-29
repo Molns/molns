@@ -149,7 +149,7 @@ class Datastore():
         if db_file is not None:
             self.engine = create_engine('sqlite:///{0}'.format(db_file))
             if config_dir is None:
-                self.config_dir = os.path.basename(db_file)
+                self.config_dir = os.path.abspath(os.path.dirname(db_file))
         elif config_dir is not None:
             if not os.path.exists(config_dir):
                 os.makedirs(config_dir)
@@ -282,6 +282,8 @@ class Datastore():
             #logging.debug("_get_object_data(): controller_id={0}".format(p.controller_id))
             ret.controller = self.get_object_by_id(id=p.controller_id, kind='Controller')
         return ret
+    
+
 
     def save_object(self, config, kind):
         """ Save the configuration of a provider object.
