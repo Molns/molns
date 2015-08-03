@@ -29,6 +29,28 @@ class MOLNSConfig(Datastore):
 ###############################################
 class MOLNSbase():
     @classmethod
+    def merge_config(self, obj, config):
+        for key, conf, value in obj.get_config_vars():
+            if key not in config:
+                if value is not None:
+                    myval = value
+                else:
+                    if 'default' in conf and conf['default']:
+                        if callable(conf['default']):
+                            f1 = conf['default']
+                            try:
+                                myval = f1()
+                            except TypeError:
+                                myval = None
+                        else:
+                            myval = conf['default']
+                    else:
+                        myval = None
+                obj.confg[key] = myval
+            else:
+                obj.confg[key] = config[key]
+
+    @classmethod
     def _get_workerobj(cls, args, config):
         # Name
         worker_obj = None
@@ -113,7 +135,7 @@ class MOLNSController(MOLNSbase):
         except DatastoreException as e:
             controller_obj = config.create_object(ptype=provider_obj.type, name=controller_name, kind='Controller', provider_id=provider_obj.id)
             msg += "Creating new controller\n"
-        controller_obj.config = data['config']
+        cls.merge_config(controller_obj, data['config'])
         config.save_object(controller_obj, kind='Controller')
         msg += "Controller data imported\n"
         return {'msg':msg}
@@ -548,7 +570,7 @@ class MOLNSWorkerGroup(MOLNSbase):
         except DatastoreException as e:
             worker_obj = config.create_object(ptype=provider_obj.type, name=worker_name, kind='WorkerGroup', provider_id=provider_obj.id, controller_id=controller_obj.id)
             msg += "Creating new worker group\n"
-        worker_obj.config = data['config']
+        cls.merge_config(worker_obj, data['config'])
         config.save_object(worker_obj, kind='WorkerGroup')
         msg += "Worker group data imported\n"
         return {'msg':msg}
@@ -878,7 +900,7 @@ class MOLNSWorkerGroup(MOLNSbase):
 
 ###############################################
 
-class MOLNSProvider():
+class MOLNSProvider(MOLNSbase):
     @classmethod
     def provider_export(cls, args, config):
         """ Export the configuration of a provider. """
@@ -926,11 +948,12 @@ class MOLNSProvider():
         except DatastoreException as e:
             provider_obj = config.create_object(name=provider_name, ptype=data['type'], kind='Provider')
             msg += "Creating new provider\n"
-        provider_obj.config = data['config']
+        cls.merge_config(provider_obj, data['config'])
         config.save_object(provider_obj, kind='Provider')
         msg += "Provider data imported\n"
         return {'msg':msg}
-        
+
+
     @classmethod
     def provider_get_config(cls, name=None, provider_type=None, config=None):
         """ Return a list of dict of config var for the provider config.
@@ -1121,7 +1144,7 @@ class MOLNSProvider():
         config.delete_object(name=args[0], kind='Provider')
 ###############################################
 
-class MOLNSInstances():
+class MOLNSInstances(MOLNSbase):
     @classmethod
     def show_instances(cls, args, config):
         """ List all instances in the db """
