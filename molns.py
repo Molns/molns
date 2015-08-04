@@ -39,7 +39,7 @@ class MOLNSbase():
                         if callable(conf['default']):
                             f1 = conf['default']
                             try:
-                                myval = f1()
+                                myval = f1(obj)
                             except TypeError:
                                 myval = None
                         else:
