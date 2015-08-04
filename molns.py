@@ -46,9 +46,9 @@ class MOLNSbase():
                             myval = conf['default']
                     else:
                         myval = None
-                obj.confg[key] = myval
+                obj.config[key] = myval
             else:
-                obj.confg[key] = config[key]
+                obj.config[key] = config[key]
 
     @classmethod
     def _get_workerobj(cls, args, config):
