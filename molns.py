@@ -388,7 +388,7 @@ class MOLNSController(MOLNSbase):
 
 
     @classmethod
-    def start_controller(cls, args, config):
+    def start_controller(cls, args, config, password=None):
         """ Start the MOLNs controller. """
         logging.debug("MOLNSController.start_controller(args={0})".format(args))
         controller_obj = cls._get_controllerobj(args, config)
@@ -414,7 +414,7 @@ class MOLNSController(MOLNSbase):
             inst = controller_obj.start_instance()
         # deploying
         sshdeploy = SSHDeploy(config=controller_obj.provider, config_dir=config.config_dir)
-        sshdeploy.deploy_ipython_controller(inst.ip_address)
+        sshdeploy.deploy_ipython_controller(inst.ip_address, notebook_password=password)
         sshdeploy.deploy_molns_webserver(inst.ip_address)
         #sshdeploy.deploy_stochss(inst.ip_address, port=443)
 
