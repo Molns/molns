@@ -983,6 +983,7 @@ class MOLNSProvider(MOLNSbase):
         for key, conf, value in obj.get_config_vars():
             if 'ask' in conf and not conf['ask']:
                 continue
+            question = conf['q']
             if value is not None:
                 myval = value
             else:
@@ -1000,6 +1001,7 @@ class MOLNSProvider(MOLNSbase):
             if myval is not None and 'obfuscate' in conf and conf['obfuscate']:
                 myval = '********'
             ret.append({
+                'question':question,
                 'key':key,
                 'value': myval,
                 'type':'string'

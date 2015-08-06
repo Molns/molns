@@ -35,9 +35,9 @@ def EucalyptusProvider_config_get_ubuntu_images_by_region(conf=None):
         secret_key = conf['aws_secret_key']
         ec2_url = conf['ec2_url']
     else:
-        access_key = os.environ['EC2_ACCESS_KEY']
-        secret_key = os.environ['EC2_SECRET_KEY']
-        ec2_url = os.environ['EC2_URL']
+        access_key = os.environ.get('EC2_ACCESS_KEY')
+        secret_key = os.environ.get('EC2_SECRET_KEY')
+        ec2_url = os.environ.get('EC2_URL')
 
     try:
         o = urlparse(ec2_url)
