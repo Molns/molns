@@ -144,6 +144,11 @@ class EucalyptusProvider(EucalyptusBase):
     def create_molns_image(self):
         """ Create the molns image is created. """
         self._connect()
+        # clear the network-related persisent udev rules:
+        #echo "" > /etc/udev/rules.d/70-persistent-net.rules 
+        #echo "" > /lib/udev/rules.d/75-persistent-net-generator.rules
+        #
+        
         # start vm
         instances = self.eucalyptus.start_eucalyptus_instances(image_id=self.config["ubuntu_image_name"])
         instance = instances[0]
@@ -157,21 +162,21 @@ class EucalyptusProvider(EucalyptusBase):
             # create image
             logging.debug("Shutting down instance")
             self.eucalyptus.stop_eucalyptus_instances([instance])
-            #logging.debug("Creating image")
-            #image_id = instance.create_image(name=self._get_image_name())
-            logging.debug("Finding volume of instance")
-            vol = None
-            for v in self.eucalyptus.conn.get_all_volumes():
-                if v.attach_data is not None and v.attach_data.instance_id == instance.id:
-                    vol = v
-                    break
-            if vol is None:
-                raise Exception("Can not find volume associated with instance.  Base image must be an EBS backed image.")
-            snap = vol.create_snapshot()
-            logging.debug('Snapshot {0} of volume {1}'.format(snap.id, vol.id))
+            logging.debug("Creating image")
+            image_id = instance.create_image(name=self._get_image_name())
+            #logging.debug("Finding volume of instance")
+            #vol = None
+            #for v in self.eucalyptus.conn.get_all_volumes():
+            #    if v.attach_data is not None and v.attach_data.instance_id == instance.id:
+            #        vol = v
+            #        break
+            #if vol is None:
+            #    raise Exception("Can not find volume associated with instance.  Base image must be an EBS backed image.")
+            #snap = vol.create_snapshot()
+            #logging.debug('Snapshot {0} of volume {1}'.format(snap.id, vol.id))
             #image_id = self.eucalyptus.conn.register_image(name=self._get_image_name(), snapshot_id=snap.id, delete_root_volume_on_termination=True)
-            #deleteOnTermination
-            image_id = self.eucalyptus.conn.register_image(name=self._get_image_name(), snapshot_id=snap.id)
+            ##deleteOnTermination
+            #image_id = self.eucalyptus.conn.register_image(name=self._get_image_name(), snapshot_id=snap.id)
             logging.debug("Image created: {0}".format(image_id))
         except Exception as e:
             logging.exception(e)
