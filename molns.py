@@ -155,16 +155,19 @@ class MOLNSController(MOLNSbase):
             raise MOLNSException("no config specified")
         if name is None and provider_type is None:
             raise MOLNSException("Controller name or provider type must be specified")
-        if name is None:
+        obj = None
+        if obj is None and name is not None:
+            try:
+                obj = config.get_object(name, kind='Controller')
+            except DatastoreException as e:
+                pass
+        if obj is None and provider_type is not None:
             if provider_type not in VALID_PROVIDER_TYPES:
                 raise MOLNSException("Unknown provider type '{0}'".format(provider_type))
             p_hand = get_provider_handle('Controller',provider_type)
             obj = p_hand('__tmp__',data={},config_dir=config.config_dir)
-        else:
-            try:
-                obj = config.get_object(name, kind='Controller')
-            except DatastoreException as e:
-                raise MOLNSException("Controller {0} not found".format(name))
+        if obj is None:
+            raise MOLNSException("Controller {0} not found".format(name))
 
         ret = []
         for key, conf, value in obj.get_config_vars():
@@ -592,16 +595,19 @@ class MOLNSWorkerGroup(MOLNSbase):
             raise MOLNSException("no config specified")
         if name is None and provider_type is None:
             raise MOLNSException("'name' or 'provider_type' must be specified.")
-        if name is None:
+        obj = None
+        if obj is None and name is not None:
+            try:
+                obj = config.get_object(name, kind='WorkerGroup')
+            except DatastoreException as e:
+                pass
+        if obj is None and provider_type is not None:
             if provider_type not in VALID_PROVIDER_TYPES:
                 raise MOLNSException("Unknown provider type '{0}'".format(provider_type))
             p_hand = get_provider_handle('WorkerGroup',provider_type)
             obj = p_hand('__tmp__',data={},config_dir=config.config_dir)
-        else:
-            try:
-                obj = config.get_object(name, kind='WorkerGroup')
-            except DatastoreException as e:
-                raise MOLNSException("Worker group {0} not found".format(name))
+        if obj is None:
+            raise MOLNSException("Worker group {0} not found".format(name))
         ret = []
         for key, conf, value in obj.get_config_vars():
             if 'ask' in conf and not conf['ask']:
@@ -973,16 +979,19 @@ class MOLNSProvider(MOLNSbase):
             raise MOLNSException("no config specified")
         if name is None and provider_type is None:
             raise MOLNSException("provider name or type must be specified")
-        if name is None:
+        obj = None
+        if obj is None and name is not None:
+            try:
+                obj = config.get_object(name, kind='Provider')
+            except DatastoreException as e:
+                pass
+        if obj is None and provider_type is not None:
             if provider_type not in VALID_PROVIDER_TYPES:
                 raise MOLNSException("unknown provider type '{0}'".format(provider_type))
             p_hand = get_provider_handle('Provider',provider_type)
             obj = p_hand('__tmp__',data={},config_dir=config.config_dir)
-        else:
-            try:
-                obj = config.get_object(name, kind='Provider')
-            except DatastoreException as e:
-                raise MOLNSException("provider {0} not found".format(name))
+        if obj is None:
+            raise MOLNSException("provider {0} not found".format(name))
         ret = []
         for key, conf, value in obj.get_config_vars():
             if 'ask' in conf and not conf['ask']:
