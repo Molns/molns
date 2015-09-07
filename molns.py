@@ -371,7 +371,9 @@ class MOLNSController(MOLNSbase):
                     provider_name = config.get_object_by_id(i.provider_id, 'Provider').name
                     status = worker_obj.get_instance_status(i)
                     table_data.append([worker_name, status, 'worker', provider_name, i.provider_instance_identifier, i.ip_address])
-            table_print(['name','status','type','provider','instance id', 'IP address'],table_data)
+            #table_print(['name','status','type','provider','instance id', 'IP address'],table_data)
+            r = {'type':'table', 'column_names':['name','status','type','provider','instance id', 'IP address'], 'data':table_data}
+            return r
         else:
             instance_list = config.get_all_instances()
             if len(instance_list) > 0:
@@ -1138,7 +1140,9 @@ class MOLNSProvider(MOLNSbase):
             table_data = []
             for p in providers:
                 table_data.append([p.name, p.type])
-            table_print(['name', 'type'], table_data)
+            #table_print(['name', 'type'], table_data)
+            r = {{'type':'table', 'column_names':['name', 'type'],'data':table_data}
+            return r
 
     @classmethod
     def show_provider(cls, args, config):
