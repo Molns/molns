@@ -1141,7 +1141,7 @@ class MOLNSProvider(MOLNSbase):
             for p in providers:
                 table_data.append([p.name, p.type])
             #table_print(['name', 'type'], table_data)
-            r = {{'type':'table', 'column_names':['name', 'type'],'data':table_data}
+            r = {'type':'table', 'column_names':['name', 'type'],'data':table_data}
             return r
 
     @classmethod
