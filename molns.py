@@ -2,141 +2,54 @@
 import os
 import re
 import sys
-from MolnsLib.molns_datastore import Datastore, DatastoreException, VALID_PROVIDER_TYPES
+from MolnsLib.molns_datastore import Datastore, DatastoreException, VALID_PROVIDER_TYPES, get_provider_handle
 from MolnsLib.molns_provider import ProviderException
 from collections import OrderedDict
 import subprocess
 from MolnsLib.ssh_deploy import SSHDeploy
 import multiprocessing
+import json
 
 import logging
 logger = logging.getLogger()
 #logger.setLevel(logging.INFO)  #for Debugging
 logger.setLevel(logging.CRITICAL)
 ###############################################
-
-class CommandException(Exception):
+class MOLNSException(Exception):
     pass
-###############################################
-def table_print(column_names, data):
-    column_width = [0]*len(column_names)
-    for i,n in enumerate(column_names):
-        column_width[i] = len(str(n))
-    for row in data:
-        if len(row) != len(column_names):
-            print "len(row) != len(column_names): {0} vs {1}".format(len(row), len(column_names))
-        for i,n in enumerate(row):
-            if len(str(n)) > column_width[i]:
-                column_width[i] = len(str(n))
-    out = "|".join([ "-"*(column_width[i]+2) for i in range(len(column_names))])
-    print '|'+out+'|'
-    out = " | ".join([ column_names[i].ljust(column_width[i]) for i in range(len(column_names))])
-    print '| '+out+' |'
-    out = "|".join([ "-"*(column_width[i]+2) for i in range(len(column_names))])
-    print '|'+out+'|'
-    for row in data:
-        out = " | ".join([ str(n).ljust(column_width[i]) for i,n in enumerate(row)])
-        print '| '+out+' |'
-    out = "|".join([ "-"*(column_width[i]+2) for i in range(len(column_names))])
-    print '|'+out+'|'
-
-def raw_input_default(q, default=None, obfuscate=False):
-    if default is None or default == '':
-        return raw_input("{0}:".format(q))
-    else:
-        if obfuscate:
-            ret = raw_input("{0} [******]: ".format(q))
-        else:
-            ret = raw_input("{0} [{1}]: ".format(q, default))
-        if ret == '':
-            return default
-        else:
-            return ret.strip()
-
-def raw_input_default_config(q, default=None, obj=None):
-    """ Ask the user and process the response with a default value. """
-    if default is None:
-        if callable(q['default']):
-            f1 = q['default']
-            try:
-                default = f1(obj)
-            except TypeError:
-                pass
-        else:
-            default = q['default']
-    if 'ask' in q and not q['ask']:
-        return default
-    if 'obfuscate' in q and q['obfuscate']:
-        return raw_input_default(q['q'], default=default, obfuscate=True)
-    else:
-        return raw_input_default(q['q'], default=default, obfuscate=False)
-
-def setup_object(obj):
-    """ Setup a molns_datastore object using raw_input_default function. """
-    for key, conf, value in obj.get_config_vars():
-        obj[key] = raw_input_default_config(conf, default=value, obj=obj)
-
-###############################################
-class SubCommand():
-    def __init__(self, command, subcommands):
-        self.command = command
-        self.subcommands = subcommands
-    def __str__(self):
-        r = ''
-        for c in self.subcommands:
-             r +=  self.command + " " + c.__str__() + "\n"
-        return r[:-1]
-    def __eq__(self, other):
-        return self.command == other
-
-    def run(self, args, config_dir=None):
-        #print "SubCommand().run({0}, {1})".format(self.command, args)
-        if len(args) > 0:
-            cmd = args[0]
-            for c in self.subcommands:
-                if c == cmd:
-                    return c.run(args[1:], config_dir=config_dir)
-        raise CommandException("command not found")
-
-###############################################
-class Command():
-    def __init__(self, command, args_defs={}, description=None, function=None):
-        self.command = command
-        self.args_defs = args_defs
-        if function is None:
-            raise Exception("Command must have a function")
-        self.function = function
-        if description is None:
-            self.description = function.__doc__.strip()
-        else:
-            self.description = description
-    def __str__(self):
-        ret = self.command+" "
-        for k,v in self.args_defs.iteritems():
-            if v is None:
-                ret += "[{0}] ".format(k)
-            else:
-                ret += "[{0}={1}] ".format(k,v)
-        ret += "\n\t"+self.description
-        return ret
-        
-    def __eq__(self, other):
-        return self.command == other
-
-    def run(self, args, config_dir=None):
-        config = MOLNSConfig(config_dir=config_dir)
-        self.function(args, config=config)
 
 ###############################################
 class MOLNSConfig(Datastore):
-    def __init__(self, config_dir):
-        Datastore.__init__(self,config_dir=config_dir)
+    def __init__(self, config_dir=None, db_file=None):
+        Datastore.__init__(self,config_dir=config_dir, db_file=db_file)
     
     def __str__(self):
         return "MOLNSConfig(config_dir={0})".format(self.config_dir)
 
 ###############################################
 class MOLNSbase():
+    @classmethod
+    def merge_config(self, obj, config):
+        for key, conf, value in obj.get_config_vars():
+            if key not in config:
+                if value is not None:
+                    myval = value
+                else:
+                    if 'default' in conf and conf['default']:
+                        if callable(conf['default']):
+                            f1 = conf['default']
+                            try:
+                                myval = f1(obj)
+                            except TypeError:
+                                myval = None
+                        else:
+                            myval = conf['default']
+                    else:
+                        myval = None
+                obj.config[key] = myval
+            else:
+                obj.config[key] = config[key]
+
     @classmethod
     def _get_workerobj(cls, args, config):
         # Name
@@ -161,8 +74,7 @@ class MOLNSbase():
         if len(args) > 0:
             controller_name = args[0]
         else:
-            print "No controller name given"
-            return None
+            raise MOLNSException("No controller name given")
         # Get controller db object
         try:
             controller_obj = config.get_object(name=controller_name, kind='Controller')
@@ -170,10 +82,122 @@ class MOLNSbase():
             controller_obj = None
         #logging.debug("controller_obj {0}".format(controller_obj))
         if controller_obj is None:
-            print "controller '{0}' is not initialized, use 'molns controller setup {0}' to initialize the controller.".format(controller_name)
+            raise MOLNSException("controller '{0}' is not initialized, use 'molns controller setup {0}' to initialize the controller.".format(controller_name))
         return controller_obj
 
 class MOLNSController(MOLNSbase):
+    @classmethod
+    def controller_export(cls, args, config):
+        """ Export the configuration of a controller. """
+        if len(args) < 1:
+            raise MOLNSException("USAGE: molns controller export name [Filename]\n"\
+                "\tExport the data from the controller with the given name.")
+        controller_name = args[0]
+        if len(args) > 1:
+            filename = args[1]
+        else:
+            filename = 'Molns-Export-Controller-' + controller_name + '.json'
+        # check if provider exists
+        try:
+            controller_obj = config.get_object(controller_name, kind='Controller')
+        except DatastoreException as e:
+            raise MOLNSException("provider not found")
+        data = {'name': controller_obj.name,
+                'provider_name': controller_obj.provider.name,
+                'config': controller_obj.config}
+        return {'data': json.dumps(data),
+                'type': 'file',
+                'filename': filename}
+
+    @classmethod
+    def controller_import(cls, args, config, json_data=None):
+        """ Import the configuration of a controller. """
+        if json_data is None:
+            if len(args) < 1:
+                raise MOLNSException("USAGE: molns controller import [Filename.json]\n"\
+                    "\Import the data from the controller with the given name.")
+            filename = args[0]
+            with open(filename) as fd:
+                data = json.load(fd)
+        else:
+            data = json_data
+        controller_name = data['name']
+        msg = ''
+        try:
+            provider_obj = config.get_object(data['provider_name'], kind='Provider')
+        except DatastoreException as e:
+            raise MOLNSException("unknown provider '{0}'".format(data['provider_name']))
+        try:
+            controller_obj = config.get_object(controller_name, kind='Controller')
+            msg += "Found existing controller\n"
+            if controller_obj.provider.name != provider_obj.name:
+                raise MOLNSException("Import data has provider '{0}'.  Controller {1} exists with provider {2}. provider conversion is not possible.".format(data['provider_name'], controller_obj.name, controller_obj.provider.name))
+        except DatastoreException as e:
+            controller_obj = config.create_object(ptype=provider_obj.type, name=controller_name, kind='Controller', provider_id=provider_obj.id)
+            msg += "Creating new controller\n"
+        cls.merge_config(controller_obj, data['config'])
+        config.save_object(controller_obj, kind='Controller')
+        msg += "Controller data imported\n"
+        return {'msg':msg}
+
+    @classmethod
+    def controller_get_config(cls, name=None, provider_type=None, config=None):
+        """ Return a list of dict of config var for the controller config.
+            Each dict in the list has the keys: 'key', 'value', 'type'
+            
+            Either 'name' or 'provider_type' must be specified.
+            If 'name' is specified, then it will retreive the value from that
+            config and return it in 'value' (or return the string '********'
+            if that config is obfuscated, such passwords).
+            
+        """
+        if config is None:
+            raise MOLNSException("no config specified")
+        if name is None and provider_type is None:
+            raise MOLNSException("Controller name or provider type must be specified")
+        obj = None
+        if obj is None and name is not None:
+            try:
+                obj = config.get_object(name, kind='Controller')
+            except DatastoreException as e:
+                pass
+        if obj is None and provider_type is not None:
+            if provider_type not in VALID_PROVIDER_TYPES:
+                raise MOLNSException("Unknown provider type '{0}'".format(provider_type))
+            p_hand = get_provider_handle('Controller',provider_type)
+            obj = p_hand('__tmp__',data={},config_dir=config.config_dir)
+        if obj is None:
+            raise MOLNSException("Controller {0} not found".format(name))
+
+        ret = []
+        for key, conf, value in obj.get_config_vars():
+            if 'ask' in conf and not conf['ask']:
+                continue
+            question = conf['q']
+            if value is not None:
+                myval = value
+            else:
+                if 'default' in conf and conf['default']:
+                    if callable(conf['default']):
+                        f1 = conf['default']
+                        try:
+                            myval = f1()
+                        except TypeError:
+                            pass
+                    else:
+                        myval = conf['default']
+                else:
+                    myval = None
+            if myval is not None and 'obfuscate' in conf and conf['obfuscate']:
+                myval = '********'
+            ret.append({
+                'question':question,
+                'key':key,
+                'value': myval,
+                'type':'string'
+            })
+        return ret
+
     @classmethod
     def setup_controller(cls, args, config):
         """Setup a controller.  Set the provider configuration for the head node.  Use 'worker setup' to set the configuration for worker nodes
@@ -214,29 +238,27 @@ class MOLNSController(MOLNSbase):
         """ List all the currently configured controllers."""
         controllers = config.list_objects(kind='Controller')
         if len(controllers) == 0:
-            print "No controllers configured"
+            return {'msg':"No controllers configured"}
         else:
             table_data = []
             for c in controllers:
                 provider_name = config.get_object_by_id(c.provider_id, 'Provider').name
                 table_data.append([c.name, provider_name])
-            table_print(['name', 'provider'], table_data)
+            return {'type':'table','column_names':['name', 'provider'], 'data':table_data}
     
     @classmethod
     def show_controller(cls, args, config):
         """ Show all the details of a controller config. """
         if len(args) == 0:
-            print "USAGE: molns controller show name"
-            return
-        print config.get_object(name=args[0], kind='Controller')
+            raise MOLNSException("USAGE: molns controller show name")
+        return {'msg':str(config.get_object(name=args[0], kind='Controller'))}
 
     @classmethod
     def delete_controller(cls, args, config):
         """ Delete a controller config. """
         #print "MOLNSProvider.delete_provider(args={0}, config={1})".format(args, config)
         if len(args) == 0:
-            print "USAGE: molns cluser delete name"
-            return
+            raise MOLNSException("USAGE: molns cluser delete name")
         config.delete_object(name=args[0], kind='Controller')
 
     @classmethod
@@ -266,6 +288,32 @@ class MOLNSController(MOLNSbase):
         subprocess.call(cmd)
         print "SSH process completed"
 
+    @classmethod
+    def upload_controller(cls, args, config):
+        """ Copy a local file to the controller's home directory. """
+        logging.debug("MOLNSController.upload_controller(args={0})".format(args))
+        controller_obj = cls._get_controllerobj(args, config)
+        if controller_obj is None: return
+        # Check if any instances are assigned to this controller
+        instance_list = config.get_controller_instances(controller_id=controller_obj.id)
+        #logging.debug("instance_list={0}".format(instance_list))
+        # Check if they are running
+        ip = None
+        if len(instance_list) > 0:
+            for i in instance_list:
+                status = controller_obj.get_instance_status(i)
+                logging.debug("instance={0} has status={1}".format(i, status))
+                if status == controller_obj.STATUS_RUNNING:
+                    ip = i.ip_address
+        if ip is None:
+            print "No active instance for this controller"
+            return
+        #print " ".join(['/usr/bin/ssh','-oStrictHostKeyChecking=no','-oUserKnownHostsFile=/dev/null','-i',controller_obj.provider.sshkeyfilename(),'ubuntu@{0}'.format(ip)])
+        #os.execl('/usr/bin/ssh','-oStrictHostKeyChecking=no','-oUserKnownHostsFile=/dev/null','-i',controller_obj.provider.sshkeyfilename(),'ubuntu@{0}'.format(ip))
+        cmd = ['/usr/bin/scp','-r','-oStrictHostKeyChecking=no','-oUserKnownHostsFile=/dev/null','-i',controller_obj.provider.sshkeyfilename(), args[1], 'ubuntu@{0}:/home/ubuntu/'.format(ip)]
+        print " ".join(cmd)
+        subprocess.call(cmd)
+        print "SCP process completed"
 
     @classmethod
     def put_controller(cls, args, config):
@@ -313,8 +361,7 @@ class MOLNSController(MOLNSbase):
                     table_data.append([controller_name, status, 'controller', provider_name, i.provider_instance_identifier, i.ip_address])
 
             else:
-                print "No instance running for this controller"
-                return
+                return {'msg': "No instance running for this controller"}
             # Check if any worker instances are assigned to this controller
             instance_list = config.get_worker_instances(controller_id=controller_obj.id)
             if len(instance_list) > 0:
@@ -324,11 +371,12 @@ class MOLNSController(MOLNSbase):
                     provider_name = config.get_object_by_id(i.provider_id, 'Provider').name
                     status = worker_obj.get_instance_status(i)
                     table_data.append([worker_name, status, 'worker', provider_name, i.provider_instance_identifier, i.ip_address])
-            table_print(['name','status','type','provider','instance id', 'IP address'],table_data)
+            #table_print(['name','status','type','provider','instance id', 'IP address'],table_data)
+            r = {'type':'table', 'column_names':['name','status','type','provider','instance id', 'IP address'], 'data':table_data}
+            return r
         else:
             instance_list = config.get_all_instances()
             if len(instance_list) > 0:
-                print "Current instances:"
                 table_data = []
                 for i in instance_list:
                     provider_name = config.get_object_by_id(i.provider_id, 'Provider').name
@@ -339,14 +387,15 @@ class MOLNSController(MOLNSbase):
                     else:
                         table_data.append([controller_name, 'controller', provider_name, i.provider_instance_identifier])
 
-                table_print(['name','type','provider','instance id'],table_data)
-                print "\n\tUse 'molns status NAME' to see current status of each instance."
+                r = {'type':'table', 'column_names':['name','type','provider','instance id'], 'data':table_data}
+                r['msg']= "\n\tUse 'molns status NAME' to see current status of each instance."
+                return r
             else:
-                print "No instance found"
+                return {'msg': "No instance found"}
 
 
     @classmethod
-    def start_controller(cls, args, config):
+    def start_controller(cls, args, config, password=None):
         """ Start the MOLNs controller. """
         logging.debug("MOLNSController.start_controller(args={0})".format(args))
         controller_obj = cls._get_controllerobj(args, config)
@@ -372,7 +421,7 @@ class MOLNSController(MOLNSbase):
             inst = controller_obj.start_instance()
         # deploying
         sshdeploy = SSHDeploy(config=controller_obj.provider, config_dir=config.config_dir)
-        sshdeploy.deploy_ipython_controller(inst.ip_address)
+        sshdeploy.deploy_ipython_controller(inst.ip_address, notebook_password=password)
         sshdeploy.deploy_molns_webserver(inst.ip_address)
         #sshdeploy.deploy_stochss(inst.ip_address, port=443)
 
@@ -468,13 +517,128 @@ class MOLNSController(MOLNSbase):
             fd.write(client_file_data)
         print "Success"
 
-    @classmethod
-    def start_spark(cls, args, config):
-        """ Start Apache Spark on the cluster. """
 
 ###############################################
 
 class MOLNSWorkerGroup(MOLNSbase):
+    @classmethod
+    def worker_group_export(cls, args, config):
+        """ Export the configuration of a worker group. """
+        if len(args) < 1:
+            raise MOLNSException("USAGE: molns worker export name [Filename]\n"\
+                "\tExport the data from the worker group with the given name.")
+        worker_name = args[0]
+        if len(args) > 1:
+            filename = args[1]
+        else:
+            filename = 'Molns-Export-Worker-' + worker_name + '.json'
+        # check if provider exists
+        try:
+            worker_obj = config.get_object(worker_name, kind='WorkerGroup')
+        except DatastoreException as e:
+            raise MOLNSException("worker group not found")
+        data = {'name': worker_obj.name,
+                'provider_name': worker_obj.provider.name,
+                'controller_name': worker_obj.controller.name,
+                'config': worker_obj.config}
+        return {'data': json.dumps(data),
+                'type': 'file',
+                'filename': filename}
+
+    @classmethod
+    def worker_group_import(cls, args, config, json_data=None):
+        """ Import the configuration of a worker group. """
+        if json_data is None:
+            if len(args) < 1:
+                raise MOLNSException("USAGE: molns worker import [Filename.json]\n"\
+                    "\Import the data from the worker with the given name.")
+            filename = args[0]
+            with open(filename) as fd:
+                data = json.load(fd)
+        else:
+            data = json_data
+        worker_name = data['name']
+        msg = ''
+        try:
+            provider_obj = config.get_object(data['provider_name'], kind='Provider')
+        except DatastoreException as e:
+            raise MOLNSException("unknown provider '{0}'".format(data['provider_name']))
+        try:
+            controller_obj = config.get_object(data['controller_name'], kind='Controller')
+        except DatastoreException as e:
+            raise MOLNSException("unknown controller '{0}'".format(data['provider_name']))
+        try:
+            worker_obj = config.get_object(worker_name, kind='WorkerGroup')
+            msg += "Found existing worker group\n"
+            if worker_obj.provider.name != provider_obj.name:
+                raise MOLNSException("Import data has provider '{0}'.  Worker group {1} exists with provider {2}. provider conversion is not possible.".format(data['provider_name'], worker_obj.name, worker_obj.provider.name))
+            if worker_obj.controller.name != controller_obj.name:
+                raise MOLNSException("Import data has controller '{0}'.  Worker group {1} exists with controller {2}. provider conversion is not possible.".format(data['controller_name'], worker_obj.name, worker_obj.controller.name))
+        except DatastoreException as e:
+            worker_obj = config.create_object(ptype=provider_obj.type, name=worker_name, kind='WorkerGroup', provider_id=provider_obj.id, controller_id=controller_obj.id)
+            msg += "Creating new worker group\n"
+        cls.merge_config(worker_obj, data['config'])
+        config.save_object(worker_obj, kind='WorkerGroup')
+        msg += "Worker group data imported\n"
+        return {'msg':msg}
+
+    @classmethod
+    def worker_group_get_config(cls, name=None, provider_type=None, config=None):
+        """ Return a list of dict of config var for the worker group config.
+            Each dict in the list has the keys: 'key', 'value', 'type'
+            
+            Either 'name' or 'provider_type' must be specified.
+            If 'name' is specified, then it will retreive the value from that
+            config and return it in 'value' (or return the string '********'
+            if that config is obfuscated, such passwords).
+            
+        """
+        if config is None:
+            raise MOLNSException("no config specified")
+        if name is None and provider_type is None:
+            raise MOLNSException("'name' or 'provider_type' must be specified.")
+        obj = None
+        if obj is None and name is not None:
+            try:
+                obj = config.get_object(name, kind='WorkerGroup')
+            except DatastoreException as e:
+                pass
+        if obj is None and provider_type is not None:
+            if provider_type not in VALID_PROVIDER_TYPES:
+                raise MOLNSException("Unknown provider type '{0}'".format(provider_type))
+            p_hand = get_provider_handle('WorkerGroup',provider_type)
+            obj = p_hand('__tmp__',data={},config_dir=config.config_dir)
+        if obj is None:
+            raise MOLNSException("Worker group {0} not found".format(name))
+        ret = []
+        for key, conf, value in obj.get_config_vars():
+            if 'ask' in conf and not conf['ask']:
+                continue
+            question = conf['q']
+            if value is not None:
+                myval = value
+            else:
+                if 'default' in conf and conf['default']:
+                    if callable(conf['default']):
+                        f1 = conf['default']
+                        try:
+                            myval = f1()
+                        except TypeError:
+                            pass
+                    else:
+                        myval = conf['default']
+                else:
+                    myval = None
+            if myval is not None and 'obfuscate' in conf and conf['obfuscate']:
+                myval = '********'
+            ret.append({
+                'question':question,
+                'key':key,
+                'value': myval,
+                'type':'string'
+            })
+        return ret
+    
     @classmethod
     def setup_worker_groups(cls, args, config):
         """ Configure a worker group. """
@@ -525,28 +689,28 @@ class MOLNSWorkerGroup(MOLNSbase):
         """ List all the currently configured worker groups."""
         groups = config.list_objects(kind='WorkerGroup')
         if len(groups) == 0:
-            print "No worker groups configured"
+            raise MOLNSException("No worker groups configured")
         else:
             table_data = []
             for g in groups:
                 provider_name = config.get_object_by_id(g.provider_id, 'Provider').name
                 controller_name = config.get_object_by_id(g.controller_id, 'Controller').name
                 table_data.append([g.name, provider_name, controller_name])
-            table_print(['name', 'provider', 'controller'], table_data)
+            return {'type':'table','column_names':['name', 'provider', 'controller'], 'data':table_data}
 
     @classmethod
     def show_worker_groups(cls, args, config):
         """ Show all the details of a worker group config. """
         if len(args) == 0:
-            print "USAGE: molns worker show name"
+            raise MOLNSException("USAGE: molns worker show name")
             return
-        print config.get_object(name=args[0], kind='WorkerGroup')
+        return {'msg': str(config.get_object(name=args[0], kind='WorkerGroup'))}
 
     @classmethod
     def delete_worker_groups(cls, args, config):
         """ Delete a worker group config. """
         if len(args) == 0:
-            print "USAGE: molns worker delete name"
+            raise MOLNSException("USAGE: molns worker delete name")
             return
         config.delete_object(name=args[0], kind='WorkerGroup')
 
@@ -569,11 +733,11 @@ class MOLNSWorkerGroup(MOLNSbase):
                     provider_name = config.get_object_by_id(i.provider_id, 'Provider').name
                     status = worker_obj.get_instance_status(i)
                     table_data.append([worker_name, status, 'worker', provider_name, i.provider_instance_identifier, i.ip_address])
-                table_print(['name','status','type','provider','instance id', 'IP address'],table_data)
+                return {'type':'table','column_names':['name','status','type','provider','instance id', 'IP address'],'data':table_data}
             else:
-                print "No worker instances running for this cluster"
+                return {'msg': "No worker instances running for this cluster"}
         else:
-            print "USAGE: molns worker status NAME"
+            raise MOLNSException("USAGE: molns worker status NAME")
 
     @classmethod
     def start_worker_groups(cls, args, config):
@@ -748,7 +912,117 @@ class MOLNSWorkerGroup(MOLNSbase):
 
 ###############################################
 
-class MOLNSProvider():
+class MOLNSProvider(MOLNSbase):
+    @classmethod
+    def provider_export(cls, args, config):
+        """ Export the configuration of a provider. """
+        if len(args) < 1:
+            raise MOLNSException("USAGE: molns provider export name [Filename]\n"\
+                "\tExport the data from the provider with the given name.")
+        provider_name = args[0]
+        if len(args) > 1:
+            filename = args[1]
+        else:
+            filename = 'Molns-Export-Provider-' + provider_name + '.json'
+        # check if provider exists
+        try:
+            provider_obj = config.get_object(args[0], kind='Provider')
+        except DatastoreException as e:
+            raise MOLNSException("provider not found")
+        data = {'name': provider_obj.name,
+                'type': provider_obj.type,
+                'config': provider_obj.config}
+        return {'data': json.dumps(data),
+                'type': 'file',
+                'filename': filename}
+
+    @classmethod
+    def provider_import(cls, args, config, json_data=None):
+        """ Import the configuration of a provider. """
+        if json_data is None:
+            if len(args) < 1:
+                raise MOLNSException("USAGE: molns provider import [Filename.json]\n"\
+                    "\Import the data from the provider with the given name.")
+            filename = args[0]
+            with open(filename) as fd:
+                data = json.load(fd)
+        else:
+            data = json_data
+        provider_name = data['name']
+        msg = ''
+        if data['type'] not in VALID_PROVIDER_TYPES:
+            raise MOLNSException("unknown provider type '{0}'".format(data['type']))
+        try:
+            provider_obj = config.get_object(provider_name, kind='Provider')
+            msg += "Found existing provider\n"
+            if provider_obj.type != data['type']:
+                raise MOLNSException("Import data has provider type '{0}'.  Provier {1} exists with type {2}. Type conversion is not possible.".format(data['type'], provider_obj.name, provider_obj.type))
+        except DatastoreException as e:
+            provider_obj = config.create_object(name=provider_name, ptype=data['type'], kind='Provider')
+            msg += "Creating new provider\n"
+        cls.merge_config(provider_obj, data['config'])
+        config.save_object(provider_obj, kind='Provider')
+        msg += "Provider data imported\n"
+        return {'msg':msg}
+
+
+    @classmethod
+    def provider_get_config(cls, name=None, provider_type=None, config=None):
+        """ Return a list of dict of config var for the provider config.
+            Each dict in the list has the keys: 'key', 'value', 'type'
+            
+            Either 'name' or 'provider_type' must be specified.
+            If 'name' is specified, then it will retreive the value from that
+            config and return it in 'value' (or return the string '********'
+            if that config is obfuscated, such passwords).
+            
+        """
+        if config is None:
+            raise MOLNSException("no config specified")
+        if name is None and provider_type is None:
+            raise MOLNSException("provider name or type must be specified")
+        obj = None
+        if obj is None and name is not None:
+            try:
+                obj = config.get_object(name, kind='Provider')
+            except DatastoreException as e:
+                pass
+        if obj is None and provider_type is not None:
+            if provider_type not in VALID_PROVIDER_TYPES:
+                raise MOLNSException("unknown provider type '{0}'".format(provider_type))
+            p_hand = get_provider_handle('Provider',provider_type)
+            obj = p_hand('__tmp__',data={},config_dir=config.config_dir)
+        if obj is None:
+            raise MOLNSException("provider {0} not found".format(name))
+        ret = []
+        for key, conf, value in obj.get_config_vars():
+            if 'ask' in conf and not conf['ask']:
+                continue
+            question = conf['q']
+            if value is not None:
+                myval = value
+            else:
+                if 'default' in conf and conf['default']:
+                    if callable(conf['default']):
+                        f1 = conf['default']
+                        try:
+                            myval = f1()
+                        except TypeError:
+                            pass
+                    else:
+                        myval = conf['default']
+                else:
+                    myval = None
+            if myval is not None and 'obfuscate' in conf and conf['obfuscate']:
+                myval = '********'
+            ret.append({
+                'question':question,
+                'key':key,
+                'value': myval,
+                'type':'string'
+            })
+        return ret
+
     @classmethod
     def provider_setup(cls, args, config):
         """ Setup a new provider. Create the MOLNS image and SSH key if necessary."""
@@ -786,6 +1060,17 @@ class MOLNSProvider():
         print "Enter configuration for provider {0}:".format(args[0])
         setup_object(provider_obj)
         config.save_object(provider_obj, kind='Provider')
+        #
+        cls.provider_initialize(args[0], config)
+
+
+    @classmethod
+    def provider_initialize(cls, provider_name, config):
+        """ Create the MOLNS image and SSH key if necessary."""
+        try:
+            provider_obj = config.get_object(provider_name, kind='Provider')
+        except DatastoreException as e:
+            raise MOLNSException("provider not found")
         #
         print "Checking all config artifacts."
         # check for ssh key
@@ -855,7 +1140,9 @@ class MOLNSProvider():
             table_data = []
             for p in providers:
                 table_data.append([p.name, p.type])
-            table_print(['name', 'type'], table_data)
+            #table_print(['name', 'type'], table_data)
+            r = {'type':'table', 'column_names':['name', 'type'],'data':table_data}
+            return r
 
     @classmethod
     def show_provider(cls, args, config):
@@ -876,7 +1163,7 @@ class MOLNSProvider():
         config.delete_object(name=args[0], kind='Provider')
 ###############################################
 
-class MOLNSInstances():
+class MOLNSInstances(MOLNSbase):
     @classmethod
     def show_instances(cls, args, config):
         """ List all instances in the db """
@@ -928,7 +1215,145 @@ class MOLNSInstances():
             print "No instance found"
 
 
+##############################################################################################
+##############################################################################################
+##############################################################################################
+##############################################################################################
+##############################################################################################
+##############################################################################################
+# Below is the API for the commmand line execution
 
+class CommandException(Exception):
+    pass
+
+def process_output_exception(e):
+    logging.exception(e)
+    sys.stderr.write("Error: {0}\n".format(e))
+
+def process_output(result):
+    if result is not None:
+        if type(result)==dict and 'type' in result:
+            if result['type'] == 'table' and 'column_names' in result and 'data' in result:
+                table_print(result['column_names'],result['data'])
+            if result['type'] == 'file' and 'filename' in result and 'data' in result:
+                output_to_file(result['filename'],result['data'])
+        elif type(result)==dict and 'msg' in result:
+            print result['msg']
+        else:
+            print result
+
+def output_to_file(filename, data):
+    with open(filename,'w+') as fd:
+        fd.write(data)
+
+def table_print(column_names, data):
+    column_width = [0]*len(column_names)
+    for i,n in enumerate(column_names):
+        column_width[i] = len(str(n))
+    for row in data:
+        if len(row) != len(column_names):
+            raise Exception("len(row) != len(column_names): {0} vs {1}".format(len(row), len(column_names)))
+        for i,n in enumerate(row):
+            if len(str(n)) > column_width[i]:
+                column_width[i] = len(str(n))
+    out = "|".join([ "-"*(column_width[i]+2) for i in range(len(column_names))])
+    print '|'+out+'|'
+    out = " | ".join([ column_names[i].ljust(column_width[i]) for i in range(len(column_names))])
+    print '| '+out+' |'
+    out = "|".join([ "-"*(column_width[i]+2) for i in range(len(column_names))])
+    print '|'+out+'|'
+    for row in data:
+        out = " | ".join([ str(n).ljust(column_width[i]) for i,n in enumerate(row)])
+        print '| '+out+' |'
+    out = "|".join([ "-"*(column_width[i]+2) for i in range(len(column_names))])
+    print '|'+out+'|'
+
+def raw_input_default(q, default=None, obfuscate=False):
+    if default is None or default == '':
+        return raw_input("{0}:".format(q))
+    else:
+        if obfuscate:
+            ret = raw_input("{0} [******]: ".format(q))
+        else:
+            ret = raw_input("{0} [{1}]: ".format(q, default))
+        if ret == '':
+            return default
+        else:
+            return ret.strip()
+
+def raw_input_default_config(q, default=None, obj=None):
+    """ Ask the user and process the response with a default value. """
+    if default is None:
+        if callable(q['default']):
+            f1 = q['default']
+            try:
+                default = f1(obj)
+            except TypeError:
+                pass
+        else:
+            default = q['default']
+    if 'ask' in q and not q['ask']:
+        return default
+    if 'obfuscate' in q and q['obfuscate']:
+        return raw_input_default(q['q'], default=default, obfuscate=True)
+    else:
+        return raw_input_default(q['q'], default=default, obfuscate=False)
+
+def setup_object(obj):
+    """ Setup a molns_datastore object using raw_input_default function. """
+    for key, conf, value in obj.get_config_vars():
+        obj[key] = raw_input_default_config(conf, default=value, obj=obj)
+
+###############################################
+class SubCommand():
+    def __init__(self, command, subcommands):
+        self.command = command
+        self.subcommands = subcommands
+    def __str__(self):
+        r = ''
+        for c in self.subcommands:
+             r +=  self.command + " " + c.__str__() + "\n"
+        return r[:-1]
+    def __eq__(self, other):
+        return self.command == other
+
+    def run(self, args, config_dir=None):
+        #print "SubCommand().run({0}, {1})".format(self.command, args)
+        if len(args) > 0:
+            cmd = args[0]
+            for c in self.subcommands:
+                if c == cmd:
+                    return c.run(args[1:], config_dir=config_dir)
+        raise CommandException("command not found")
+
+###############################################
+class Command():
+    def __init__(self, command, args_defs={}, description=None, function=None):
+        self.command = command
+        self.args_defs = args_defs
+        if function is None:
+            raise Exception("Command must have a function")
+        self.function = function
+        if description is None:
+            self.description = function.__doc__.strip()
+        else:
+            self.description = description
+    def __str__(self):
+        ret = self.command+" "
+        for k,v in self.args_defs.iteritems():
+            if v is None:
+                ret += "[{0}] ".format(k)
+            else:
+                ret += "[{0}={1}] ".format(k,v)
+        ret += "\n\t"+self.description
+        return ret
+        
+    def __eq__(self, other):
+        return self.command == other
+
+    def run(self, args, config_dir=None):
+        config = MOLNSConfig(config_dir=config_dir)
+        return self.function(args, config=config)
 ###############################################
 
 COMMAND_LIST = [
@@ -945,7 +1370,8 @@ COMMAND_LIST = [
             function=MOLNSController.terminate_controller),
         Command('put', {'name':None, 'file':None},
             function=MOLNSController.put_controller),
-                
+        Command('upload', {'name':None, 'file':None},
+            function=MOLNSController.upload_controller),
         #Command('local-connect', {'name':None},
         #    function=MOLNSController.connect_controller_to_local),
         # Commands to interact with controller
@@ -958,6 +1384,10 @@ COMMAND_LIST = [
                 function=MOLNSController.show_controller),
             Command('delete', {'name':None},
                 function=MOLNSController.delete_controller),
+            Command('export',{'name':None},
+                function=MOLNSController.controller_export),
+            Command('import',{'filename.json':None},
+                function=MOLNSController.controller_import),
         ]),
         # Commands to interact with Worker-Groups
         SubCommand('worker',[
@@ -979,6 +1409,10 @@ COMMAND_LIST = [
             #    function=MOLNSWorkerGroup.stop_worker_groups),
             Command('terminate', {'name':None},
                 function=MOLNSWorkerGroup.terminate_worker_groups),
+            Command('export',{'name':None},
+                function=MOLNSWorkerGroup.worker_group_export),
+            Command('import',{'filename.json':None},
+                function=MOLNSWorkerGroup.worker_group_import),
         ]),
         # Commands to interact with Infrastructure-Providers
         SubCommand('provider',[
@@ -992,9 +1426,13 @@ COMMAND_LIST = [
                 function=MOLNSProvider.show_provider),
             Command('delete',{'name':None},
                 function=MOLNSProvider.delete_provider),
+            Command('export',{'name':None},
+                function=MOLNSProvider.provider_export),
+            Command('import',{'filename.json':None},
+                function=MOLNSProvider.provider_import),
         ]),
         # Commands to interact with the instance DB
-        SubCommand('instances',[
+        SubCommand('instancedb',[
             Command('list', {},
                 function=MOLNSInstances.show_instances),
             Command('delete', {'ID':None},
@@ -1026,24 +1464,25 @@ def parseArgs():
         if arg_list[0].startswith('--debug'):
             print "Turning on Debugging output"
             logger.setLevel(logging.DEBUG)  #for Debugging
-            #logger.setLevel(logging.INFO)  #for Debugging
         arg_list = arg_list[1:]
     
-    #print "config_dir", config_dir
-    #print "arg_list ", arg_list
     if len(arg_list) == 0 or arg_list[0] =='help' or arg_list[0] == '-h':
         printHelp()
         return
         
     if arg_list[0] in COMMAND_LIST:
-        #print arg_list[0] + " in COMMAND_LIST"
         for cmd in COMMAND_LIST:
             if cmd == arg_list[0]:
                 try:
-                    cmd.run(arg_list[1:], config_dir=config_dir)
+                    output = cmd.run(arg_list[1:], config_dir=config_dir)
+                    process_output(output)
                     return
                 except CommandException:
                     pass
+                except Exception as e:
+                    process_output_exception(e)
+                    return
+
     print "unknown command: " +  " ".join(arg_list)
     #printHelp()
     print "use 'molns help' to see all possible commands"

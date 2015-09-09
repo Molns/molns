@@ -32,7 +32,7 @@ class InstallSW:
         "sudo apt-get -y install python-matplotlib python-numpy python-scipy",
         "sudo apt-get -y install make",
         "sudo apt-get -y install python-software-properties",
-        "sudo add-apt-repository ppa:fenics-packages/fenics",
+        "sudo add-apt-repository -y ppa:fenics-packages/fenics",
         "sudo apt-get update",
         "sudo apt-get -y install fenics",
         "sudo apt-get -y install cython python-h5py",
