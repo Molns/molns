@@ -277,12 +277,20 @@ class Datastore():
         ret.datastore = self
         if 'provider_id' in p.__dict__:
             #logging.debug("_get_object_data(): provider_id={0}".format(p.provider_id))
-            ret.provider = self.get_object_by_id(id=p.provider_id, kind='Provider')
+            try:
+                ret.provider = self.get_object_by_id(id=p.provider_id, kind='Provider')
+            except DatastoreException as e:
+                logging.debug('Error: provider {0} not found'.format(p.provider_id))
+                ret.provider = None
         if 'controller_id' in p.__dict__:
             #logging.debug("_get_object_data(): controller_id={0}".format(p.controller_id))
-            ret.controller = self.get_object_by_id(id=p.controller_id, kind='Controller')
+            try:
+                ret.controller = self.get_object_by_id(id=p.controller_id, kind='Controller')
+            except DatastoreException as e:
+                logging.debug('Error: controller {0} not found'.format(p.controller_id))
+                ret.controller = None
         return ret
-    
+
 
 
     def save_object(self, config, kind):
