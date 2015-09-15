@@ -9,7 +9,7 @@ import logging
 import sys
 #############################################################
 #VALID_PROVIDER_TYPES = ['OpenStack', 'EC2', 'Rackspace']
-VALID_PROVIDER_TYPES = ['OpenStack', 'EC2']
+VALID_PROVIDER_TYPES = ['OpenStack', 'EC2', 'Eucalyptus']
 #############################################################
 #### SCHEMA #################################################
 #############################################################
@@ -148,10 +148,13 @@ class Datastore():
         """ Constructor. """
         if db_file is not None:
             self.engine = create_engine('sqlite:///{0}'.format(db_file))
+            if config_dir is None:
+                self.config_dir = os.path.abspath(os.path.dirname(db_file))
         elif config_dir is not None:
             if not os.path.exists(config_dir):
                 os.makedirs(config_dir)
             self.engine = create_engine('sqlite:///{0}/{1}'.format(config_dir, self.MOLNS_DATASTORE))
+            self.config_dir = config_dir
         else:
             if not os.path.exists(self.MOLNS_CONFIG_DIR):
                 os.makedirs(self.MOLNS_CONFIG_DIR)
@@ -160,7 +163,6 @@ class Datastore():
         Base.metadata.create_all(self.engine) # Create all the tables
         Session = sessionmaker(bind=self.engine)
         self.session = Session()
-        self.config_dir = config_dir
 
     def __del__(self):
         """ Destructor. """
@@ -259,7 +261,7 @@ class Datastore():
         (handle, d_handle) = HANDLE_MAPPING[kind]
         p = self.session.query(handle).filter_by(id=id).first()
         if p is None:
-            raise DatastoreException("{0} {1} not found".format(kind, name))
+            raise DatastoreException("{0} {1} not found".format(kind, id))
         return self._get_object_data(d_handle, kind, p.type, p)
 
     def _get_object_data(self, d_handle, kind, ptype, p):
@@ -275,11 +277,21 @@ class Datastore():
         ret.datastore = self
         if 'provider_id' in p.__dict__:
             #logging.debug("_get_object_data(): provider_id={0}".format(p.provider_id))
-            ret.provider = self.get_object_by_id(id=p.provider_id, kind='Provider')
+            try:
+                ret.provider = self.get_object_by_id(id=p.provider_id, kind='Provider')
+            except DatastoreException as e:
+                logging.debug('Error: provider {0} not found'.format(p.provider_id))
+                ret.provider = None
         if 'controller_id' in p.__dict__:
             #logging.debug("_get_object_data(): controller_id={0}".format(p.controller_id))
-            ret.controller = self.get_object_by_id(id=p.controller_id, kind='Controller')
+            try:
+                ret.controller = self.get_object_by_id(id=p.controller_id, kind='Controller')
+            except DatastoreException as e:
+                logging.debug('Error: controller {0} not found'.format(p.controller_id))
+                ret.controller = None
         return ret
+
+
 
     def save_object(self, config, kind):
         """ Save the configuration of a provider object.
