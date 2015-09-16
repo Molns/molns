@@ -39,10 +39,7 @@ class InstallSW:
         "sudo pip install pyzmq --upgrade",
         "sudo pip install dill cloud pygments",
         "sudo pip install tornado Jinja2",
-        # Upgrade scipy from pip to get rid of super-annoying six.py bug on Trusty
-        "sudo apt-get -y remove python-scipy",
-        "sudo pip install scipy",
-          
+                  
         # Molnsutil
         [
             "sudo pip install jsonschema jsonpointer",
@@ -114,7 +111,11 @@ class InstallSW:
             "cp MOLNS_notebooks/*.ipynb .;rm -rf MOLNS_notebooks;",
             "ls *.ipynb"
         ],
-         
+                    
+        # Upgrade scipy from pip to get rid of super-annoying six.py bug on Trusty
+        "sudo apt-get -y remove python-scipy",
+        "sudo pip install scipy",
+
         
         "sync",  # This is critial for some infrastructures.
     ]
