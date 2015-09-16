@@ -1,6 +1,10 @@
 # MOLNs spatial stochastic simulation appliance #
 
-MOLNs is a cloud appliance that will set up, start and manage a virtual platform for scalable, distributed computational experiments using PyURDME (www.pyurdme.org). 
+MOLNs is a cloud appliance that will set up, start and manage a virtual platform for scalable, distributed computational experiments using (spatial) stochastic simulation software such as PyURDME (www.pyurdme.org) and StochKit/Gillespy (www.github.com/Gillespy/gillespy). In addition, MOLNs by default makes FEniCS/Dolfin available as-a Service.  
+
+Since MOLNs will configure and manage a virtual IPython Cluster (with a Notebook frontend), with Numpy, SciPy and Ipython Parallel enabled, it can also be useful for general contextualization and management of dynamic, cloud-agnostic (supports EC2 and OpenStack-based clouds) virtual IPython environments, even if you are not into spatial stochstic simulations in systems biology. 
+
+Note: MOLNs is currenly compatible only with 'EC2-Classic', we are working on supporting Amazon VPC. 
 
 ### Prerequisites ###
 To use MOLNs, you need valid credentials to an OpenStack cloud, Amazon Elastic Compute Cloud (EC2) or HP Helion public cloud. You also need Python, and the following packages:
@@ -71,9 +75,10 @@ To set up a start a MOLNs virtual platform named "molns-test" in a cloud provide
     $ molns start molns-test
     $ molns worker start molns-test-workers
 
-You will be presented with a URL for the controller node of your platform. Navigate there using a browser (Google Chrome or Firefox are recommended). The easiest way to get started using the platform is to dive into one of the provided tutorial notebooks that are made available in every fresh MOLNs virtual platform.  
+You will be presented with a URL for the controller node of your platform. Navigate there using a browser (Google Chrome is strongly recommended, and Safari should be avoided). The easiest way to get started using the platform is to dive into one of the provided tutorial notebooks that are made available in every fresh MOLNs virtual platform.  
 
 For a complete list of the valid subcommands for molns, type 
+
     $ molns help
 
 ### Above commands explained ###
