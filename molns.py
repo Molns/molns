@@ -1454,28 +1454,7 @@ COMMAND_LIST = [
             Command('import',{'filename.json':None},
                 function=MOLNSProvider.provider_import),
         ]),
-                
-        SubCommand('service',[
-            Command('setup',{'name':None},
-                    function=MOLNSProvider.provider_setup),
-            Command('setup',{'name':None},
-                    function=MOLNSProvider.provider_setup),
-            Command('start',{'name':None},
-                    function=MOLNSProvider.provider_setup),
-            Command('rebuild',{'name':None},
-                    function=MOLNSProvider.provider_rebuild),
-            Command('list',{'name':None},
-                   function=MOLNSProvider.provider_list),
-            Command('show',{'name':None},
-                   function=MOLNSProvider.show_provider),
-            Command('terminate',{'name':None},
-                   function=MOLNSProvider.delete_provider),
-            Command('export',{'name':None},
-                   function=MOLNSProvider.provider_export),
-            Command('import',{'filename.json':None},
-                   function=MOLNSProvider.provider_import),
-        ]),
-
+    
                 
         # Commands to interact with the instance DB
         SubCommand('instancedb',[
