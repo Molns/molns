@@ -1454,8 +1454,6 @@ COMMAND_LIST = [
             Command('import',{'filename.json':None},
                 function=MOLNSProvider.provider_import),
         ]),
-    
-                
         # Commands to interact with the instance DB
         SubCommand('instancedb',[
             Command('list', {},

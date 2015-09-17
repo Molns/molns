@@ -46,7 +46,7 @@ class InstallSW:
             # EC2/S3 and OpenStack APIs
             "sudo pip install boto",
             "sudo apt-get -y install pandoc",
-            # This set of packages is really only needed for OpenStack, but molnsutil uses them
+            # This set of packages is needed for OpenStack, as molnsutil uses them for hybrid cloud deployment
             "sudo apt-get -y install libxml2-dev libxslt1-dev python-dev",
             "sudo pip install python-novaclient",
             "sudo easy_install -U pip",
@@ -79,13 +79,23 @@ class InstallSW:
         ### Simulation software related to pyurdme and StochSS
 
         # Gillespy
-        [   "sudo rm -rf /usr/local/stochkit;sudo mkdir -p /usr/local/stochkit;sudo chown ubuntu /usr/local/stochkit",
-            "cd /usr/local/ && git clone https://github.com/StochSS/stochkit.git",
-            "cd /usr/local/stochkit && ./install.sh",
+        [   "sudo rm -rf /usr/local/StochKit;sudo mkdir -p /usr/local/StochKit;sudo chown ubuntu /usr/local/StochKit",
+            "cd /usr/local/ && git clone https://github.com/StochSS/stochkit.git StochKit",
+            "cd /usr/local/StochKit && ./install.sh",
+         
+            "sudo rm -rf /usr/local/ode-1.0.2;sudo mkdir -p /usr/local/ode-1.0.2/;sudo chown ubuntu /usr/local/ode-1.0.2",
+            "wget https://github.com/StochSS/stochss/blob/master/ode-1.0.2.tgz?raw=true -q -O /tmp/ode.tgz",
+            "cd /usr/local/ && tar -xzf /tmp/ode.tgz",
+            "rm /tmp/ode.tgz",
+            "cd /usr/local/ode-1.0.2/cvodes/ && tar -xzf \"cvodes-2.7.0.tar.gz\"",
+            "cd /usr/local/ode-1.0.2/cvodes/cvodes-2.7.0/ && ./configure --prefix=\"/usr/local/ode-1.0.2/cvodes/cvodes-2.7.0/cvodes\" 1>stdout.log 2>stderr.log",
+            "cd /usr/local/ode-1.0.2/cvodes/cvodes-2.7.0/ && make 1>stdout.log 2>stderr.log",
+            "cd /usr/local/ode-1.0.2/cvodes/cvodes-2.7.0/ && make install 1>stdout.log 2>stderr.log",
+            "cd /usr/local/ode-1.0.2/ && STOCHKIT_HOME=/usr/local/StochKit/ STOCHKIT_ODE=/usr/local/ode-1.0.2/ make 1>stdout.log 2>stderr.log",
          
             "sudo rm -rf /usr/local/gillespy;sudo mkdir -p /usr/local/gillespy;sudo chown ubuntu /usr/local/gillespy",
             "cd /usr/local/ && git clone https://github.com/MOLNs/gillespy.git",
-            "cd /usr/local/gillespy && sudo STOCHKIT_HOME=/usr/local/stochkit/ python setup.py install"
+            "cd /usr/local/gillespy && sudo STOCHKIT_HOME=/usr/local/StochKit/ STOCHKIT_ODE_HOME=/usr/local/ode-1.0.2/ python setup.py install"
 
         ],
 
@@ -100,8 +110,7 @@ class InstallSW:
         # pyurdme
         [   "sudo rm -rf /usr/local/pyurdme;sudo mkdir -p /usr/local/pyurdme;sudo chown ubuntu /usr/local/pyurdme",
             "cd /usr/local/ && git clone https://github.com/MOLNs/pyurdme.git",
-            "cd /usr/local/pyurdme && git checkout develop",
-         
+            #"cd /usr/local/pyurdme && git checkout develop",  # for development only
             "cp /usr/local/pyurdme/pyurdme/data/three.js_templates/js/* .ipython/profile_default/static/custom/",
             "source /usr/local/pyurdme/pyurdme_init && python -c 'import pyurdme'",
         ],
@@ -115,6 +124,8 @@ class InstallSW:
         # Upgrade scipy from pip to get rid of super-annoying six.py bug on Trusty
         "sudo apt-get -y remove python-scipy",
         "sudo pip install scipy",
+        
+        "sudo pip install jsonschema jsonpointer",  #redo this install to be sure it has not been removed.
 
         
         "sync",  # This is critial for some infrastructures.
