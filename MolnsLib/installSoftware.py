@@ -68,11 +68,11 @@ class InstallSW:
                     
         # IPython
         [   "sudo rm -rf ipython;git clone --recursive https://github.com/Molns/ipython.git",
-         "cd ipython && git checkout 3.0.0-molns_fixes && python setup.py submodule && sudo python setup.py install",
-         "sudo rm -rf ipython",
-         "ipython profile create default",
-         "sudo pip install terminado",  #Jupyter terminals
-         "python -c \"from IPython.external import mathjax; mathjax.install_mathjax(tag='2.2.0')\""
+            "cd ipython && git checkout 3.0.0-molns_fixes && python setup.py submodule && sudo python setup.py install",
+            "sudo rm -rf ipython",
+            "ipython profile create default",
+            "sudo pip install terminado",  #Jupyter terminals
+            "python -c \"from IPython.external import mathjax; mathjax.install_mathjax(tag='2.2.0')\""
         ],
                     
                     
