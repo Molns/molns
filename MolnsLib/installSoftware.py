@@ -110,8 +110,7 @@ class InstallSW:
         # pyurdme
         [   "sudo rm -rf /usr/local/pyurdme;sudo mkdir -p /usr/local/pyurdme;sudo chown ubuntu /usr/local/pyurdme",
             "cd /usr/local/ && git clone https://github.com/MOLNs/pyurdme.git",
-            "cd /usr/local/pyurdme && git checkout develop",
-         
+            #"cd /usr/local/pyurdme && git checkout develop",  # for development only
             "cp /usr/local/pyurdme/pyurdme/data/three.js_templates/js/* .ipython/profile_default/static/custom/",
             "source /usr/local/pyurdme/pyurdme_init && python -c 'import pyurdme'",
         ],
